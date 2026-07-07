@@ -455,10 +455,12 @@ blockquote {
             <input id="fWord" required autocomplete="off" placeholder="Type the word…">
             <button type="button" class="btn" id="lookupBtn" title="Auto-fill IPA, definition, synonyms from a free dictionary">🔎 Auto-fill</button>
           </div>
-          <p class="hint">Auto-fill uses a free online dictionary (needs internet; phrases may not be found).</p>
+          <p class="hint">Auto-fill uses two free dictionaries (needs internet) and fills definition, IPA,
+            part of speech, example, synonyms, antonyms, collocations, and difficulty — only fields you left empty.</p>
         </div>
         <div class="full"><label for="fDefinition">Simple English definition *</label>
-          <input id="fDefinition" required placeholder="A short, clear definition"></div>
+          <textarea id="fDefinition" required rows="2" style="min-height:52px"
+            placeholder="A short, clear definition — long ones wrap onto the next line"></textarea></div>
         <div><label for="fPos">Part of speech</label>
           <select id="fPos">
             <option value="">—</option><option>noun</option><option>verb</option><option>adjective</option>
@@ -1205,48 +1207,105 @@ $("wordForm").addEventListener("submit", e => {
   $("formModal").close();
 });
 
-/* ---------- Auto-fill from the free dictionary (dictionaryapi.dev) ----------
-   Fills only EMPTY fields, so it never overwrites what you typed. */
+/* ---------- Auto-fill (free, keyless, fills only EMPTY fields) ----------
+   Combines two free APIs:
+   - dictionaryapi.dev → IPA, part of speech, definition, extra senses, example,
+                         synonyms, antonyms
+   - datamuse.com      → collocations (word pairs from a real text corpus),
+                         extra synonyms/antonyms, and word frequency
+                         (used to suggest the difficulty level)             */
 const POS_MAP = { noun: "noun", verb: "verb", adjective: "adjective", adverb: "adverb",
   preposition: "preposition", conjunction: "conjunction", pronoun: "pronoun",
   interjection: "interjection", determiner: "determiner" };
+
+// Function words that Datamuse returns as neighbours but make useless collocations
+const STOP_WORDS = new Set(("the,a,an,and,or,but,of,to,in,on,at,by,for,with,from,as,is,are,was,were,be,been,being," +
+  "it,its,he,she,they,we,you,i,his,her,their,our,your,my,this,that,these,those,there,here,not,no,so,if,than,then," +
+  "too,very,more,most,much,many,some,any,such,into,over,under,about,also,just,only,other,own,same,can,will,do,does," +
+  "did,have,has,had,may,might,shall,should,would,could,must,me,him,them,us,one,two,all,each,both,few,now,when,where," +
+  "who,whom,which,what,why,how,s,t,d,ll,re,ve").split(","));
+const goodNeighbours = list => (list || [])
+  .filter(x => /^[a-z][a-z'-]{1,}$/i.test(x.word) && !STOP_WORDS.has(x.word.toLowerCase()));
+
+const datamuse = async q => {
+  const r = await fetch("https://api.datamuse.com/words?" + q);
+  if (!r.ok) throw new Error("datamuse " + r.status);
+  return r.json();
+};
 
 $("lookupBtn").addEventListener("click", async () => {
   const word = $("fWord").value.trim();
   if (!word) { toast("Type a word first"); $("fWord").focus(); return; }
   const btn = $("lookupBtn");
   btn.disabled = true; btn.textContent = "⏳ Looking up…";
+  const filled = [];
+  const fillIf = (id, value, label) => {
+    if (value && !$(id).value.trim()) { $(id).value = value; filled.push(label); }
+  };
+  const enc = encodeURIComponent(word);
+  // All requests fly in parallel; each may fail independently without breaking the rest
+  const [dict, dmSyn, dmAnt, dmAfter, dmBefore, dmFreq] = await Promise.allSettled([
+    fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + enc)
+      .then(r => { if (!r.ok) throw new Error("not found"); return r.json(); }),
+    datamuse("rel_syn=" + enc + "&max=8"),
+    datamuse("rel_ant=" + enc + "&max=6"),
+    datamuse("rel_bga=" + enc + "&max=30"),   // words that frequently FOLLOW it
+    datamuse("rel_bgb=" + enc + "&max=30"),   // words that frequently PRECEDE it
+    datamuse("sp=" + enc + "&md=f&max=1")     // corpus frequency
+  ]);
   try {
-    const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word));
-    if (!res.ok) throw new Error(res.status === 404
-      ? "Not found in the dictionary (phrases often aren't) — fill it manually."
-      : "Dictionary error " + res.status);
-    const entry = (await res.json())[0];
-
-    // IPA: top-level phonetic, or the first phonetics item that has text
-    const ipa = entry.phonetic || (entry.phonetics || []).find(p => p.text)?.text || "";
-    if (ipa && !$("fIpa").value) $("fIpa").value = ipa;
-
-    const meanings = entry.meanings || [];
-    if (meanings.length) {
-      const m = meanings[0];
-      if (!$("fPos").value && POS_MAP[m.partOfSpeech]) $("fPos").value = POS_MAP[m.partOfSpeech];
-      const defs = m.definitions || [];
-      if (defs.length && !$("fDefinition").value) $("fDefinition").value = defs[0].definition;
-      // A second definition (or second meaning) makes a good starting explanation
-      const extra = defs[1]?.definition || meanings[1]?.definitions?.[0]?.definition;
-      if (extra && !$("fExplanation").value)
-        $("fExplanation").value = "Also: " + extra;
-      const example = defs.find(d => d.example)?.example;
-      if (example && !$("fExampleLearning").value) $("fExampleLearning").value = example;
-      const syns = [...new Set(meanings.flatMap(x => [...(x.synonyms || []), ...(x.definitions || []).flatMap(d => d.synonyms || [])]))];
-      const ants = [...new Set(meanings.flatMap(x => [...(x.antonyms || []), ...(x.definitions || []).flatMap(d => d.antonyms || [])]))];
-      if (syns.length && !$("fSynonyms").value) $("fSynonyms").value = syns.slice(0, 6).join(", ");
-      if (ants.length && !$("fAntonyms").value) $("fAntonyms").value = ants.slice(0, 6).join(", ");
+    let dictSyns = [], dictAnts = [];
+    if (dict.status === "fulfilled") {
+      const entry = dict.value[0];
+      const ipa = entry.phonetic || (entry.phonetics || []).find(p => p.text)?.text || "";
+      fillIf("fIpa", ipa, "IPA");
+      const meanings = entry.meanings || [];
+      if (meanings.length) {
+        const m = meanings[0];
+        if (!$("fPos").value && POS_MAP[m.partOfSpeech]) { $("fPos").value = POS_MAP[m.partOfSpeech]; filled.push("part of speech"); }
+        const defs = m.definitions || [];
+        fillIf("fDefinition", defs[0]?.definition, "definition");
+        // Second sense / second part of speech → starting point for the explanation
+        const extras = [defs[1]?.definition,
+          meanings[1]?.definitions?.[0] ? `As ${meanings[1].partOfSpeech}: ${meanings[1].definitions[0].definition}` : ""
+        ].filter(Boolean);
+        fillIf("fExplanation", extras.length ? "Other senses: " + extras.join(" · ") : "", "explanation");
+        const example = defs.find(d => d.example)?.example ||
+          meanings[1]?.definitions?.find(d => d.example)?.example;
+        fillIf("fExampleLearning", example, "example");
+        dictSyns = meanings.flatMap(x => [...(x.synonyms || []), ...(x.definitions || []).flatMap(d => d.synonyms || [])]);
+        dictAnts = meanings.flatMap(x => [...(x.antonyms || []), ...(x.definitions || []).flatMap(d => d.antonyms || [])]);
+      }
     }
-    toast("Auto-filled ✓ — check and adjust, then save");
+    // Synonyms & antonyms: dictionary first, topped up from Datamuse
+    const syns = [...new Set([...dictSyns, ...(dmSyn.status === "fulfilled" ? dmSyn.value.map(x => x.word) : [])])];
+    const ants = [...new Set([...dictAnts, ...(dmAnt.status === "fulfilled" ? dmAnt.value.map(x => x.word) : [])])];
+    fillIf("fSynonyms", syns.slice(0, 6).join(", "), "synonyms");
+    fillIf("fAntonyms", ants.slice(0, 6).join(", "), "antonyms");
+    // Collocations: real neighbours from the corpus, function words filtered out
+    const collocations = [
+      ...goodNeighbours(dmAfter.status === "fulfilled" ? dmAfter.value : []).slice(0, 4).map(x => `${word} ${x.word}`),
+      ...goodNeighbours(dmBefore.status === "fulfilled" ? dmBefore.value : []).slice(0, 3).map(x => `${x.word} ${word}`)
+    ];
+    fillIf("fCollocations", collocations.join(", "), "collocations");
+    // Difficulty from word frequency (only for brand-new words, never on edit):
+    // very common → Easy, rare → Hard
+    if (!editingId && dmFreq.status === "fulfilled" &&
+        dmFreq.value[0]?.word?.toLowerCase() === word.toLowerCase()) {
+      const f = parseFloat((dmFreq.value[0].tags || []).find(t => t.startsWith("f:"))?.slice(2) || "0");
+      if (f > 0) { $("fDifficulty").value = f >= 25 ? "Easy" : f >= 3 ? "Medium" : "Hard"; filled.push("difficulty"); }
+    }
+    if (!filled.length) {
+      toast(dict.status === "rejected"
+        ? "Not found — phrases often aren't in dictionaries; fill it manually."
+        : "Nothing new to fill — all fields already have content.");
+    } else {
+      // Show the extra fields so you can see (and fix) what was filled
+      if (filled.some(l => !["definition", "part of speech"].includes(l))) setMoreVisible(true);
+      toast("Auto-filled: " + filled.join(", ") + " — check & adjust, then save");
+    }
   } catch (err) {
-    toast(navigator.onLine === false ? "You're offline — auto-fill needs internet." : err.message);
+    toast(navigator.onLine === false ? "You're offline — auto-fill needs internet." : "Auto-fill problem: " + err.message);
   } finally {
     btn.disabled = false; btn.textContent = "🔎 Auto-fill";
   }
