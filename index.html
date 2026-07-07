@@ -587,6 +587,11 @@ blockquote {
       <button class="btn" id="exportCsvBtn">⭳ Export CSV (words)</button>
       <button class="btn" id="importBtn">⭱ Import JSON backup</button>
     </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
+    <p style="margin-bottom:10px" class="hint">Made a mess while testing? Reset wipes only THIS browser's local data
+      (words, grammar, pending deletions, review progress — settings are kept) and brings the samples back.
+      The group's data on GitHub is not touched. Sync afterwards to pull the group's words again.</p>
+    <button class="btn btn-danger" id="resetLocalBtn">🧹 Reset this device</button>
   </div>
   <div class="modal-foot"><button class="btn" data-close>Close</button></div>
 </dialog>
@@ -1703,6 +1708,24 @@ async function syncNow() {
     for (const f of files) {
       for (let attempt = 0; attempt < 2; attempt++) {
         const remote = await ghGetFile(f.path);
+        // Safety net: my local deletions will remove entries for the WHOLE group.
+        // List them and ask once; "Cancel" un-deletes them (they come back from
+        // the group copy during the merge below).
+        if (attempt === 0 && remote) {
+          const remoteDeletedIds = new Set((remote.json?.deleted || []).map(t => t.id));
+          const pending = deleted.filter(t => (t.kind === "word") === f.word &&
+            !remoteDeletedIds.has(t.id) && (remote.json?.entries || []).some(e => e.id === t.id));
+          if (pending.length) {
+            const names = pending.map(t => {
+              const e = (remote.json.entries || []).find(x => x.id === t.id);
+              return "• " + (e?.word || e?.title || t.id);
+            }).join("\n");
+            if (!confirm(`You deleted ${pending.length} entr${pending.length !== 1 ? "ies" : "y"} on this device. Syncing will remove them for EVERYONE:\n\n${names}\n\nOK = delete for the whole group\nCancel = keep them (they'll come back from the group copy)`)) {
+              const pendingIds = new Set(pending.map(t => t.id));
+              deleted = deleted.filter(t => !pendingIds.has(t.id));
+            }
+          }
+        }
         totalNew += mergeRemote(f.list(), remote?.json, f.norm, f.word);
         const kindDeleted = deleted.filter(t => (t.kind === "word") === f.word);
         const payload = { entries: f.shared(), deleted: kindDeleted };
@@ -1755,6 +1778,14 @@ $("settingsForm").addEventListener("submit", e => {
    EXPORT / IMPORT (extra local backup besides the GitHub repo)
    ================================================================== */
 $("menuBtn").addEventListener("click", () => $("backupModal").showModal());
+
+/* Reset THIS browser only: local words/grammar/tombstones/progress go,
+   settings (name, token) stay, samples reseed, GitHub data untouched. */
+$("resetLocalBtn").addEventListener("click", () => {
+  if (!confirm("Reset this device? Local words, grammar notes, pending deletions and review progress will be wiped. The group's data on GitHub is NOT touched.")) return;
+  [LS_WORDS, LS_GRAMMAR, LS_DELETED, LS_INIT, LS_LASTBOOK].forEach(k => localStorage.removeItem(k));
+  location.reload();
+});
 
 function download(filename, text, type) {
   const blob = new Blob([text], { type });
