@@ -1,0 +1,189 @@
+{
+ "entries": [
+  {
+   "id": "sample-reluctant",
+   "word": "reluctant",
+   "pos": "adjective",
+   "ipa": "/rɪˈlʌktənt/",
+   "definition": "Not willing to do something; hesitant.",
+   "explanation": "Used when someone agrees to do something but does not really want to, often because of doubt or fear. It describes an inner resistance rather than an open refusal.",
+   "exampleBook": "She was reluctant to leave the safety of the lighthouse, even as the storm calmed.",
+   "exampleLearning": "He was reluctant to admit his mistake in front of the whole team.",
+   "grammar": "Gradable adjective. Followed by 'to' + infinitive: reluctant to do something. Noun form takes 'reluctance to'.",
+   "collocations": [
+    "reluctant to admit",
+    "reluctant to accept",
+    "deeply reluctant"
+   ],
+   "synonyms": [
+    "unwilling",
+    "hesitant",
+    "disinclined"
+   ],
+   "antonyms": [
+    "eager",
+    "willing",
+    "keen"
+   ],
+   "wordForms": "noun: reluctance; adverb: reluctantly",
+   "book": "Ready for C1 Advanced",
+   "chapterPage": "Unit 1",
+   "note": "Often paired with 'to admit' — good for formal writing.",
+   "tags": [
+    "academic",
+    "emotions"
+   ],
+   "difficulty": "Easy",
+   "updatedAt": "2026-07-08T00:00:00.000Z",
+   "dateAdded": "2026-07-08"
+  },
+  {
+   "id": "sample-contemplate",
+   "word": "contemplate",
+   "pos": "verb",
+   "ipa": "/ˈkɒntəmpleɪt/",
+   "definition": "To think about something deeply and for a long time.",
+   "explanation": "Suggests slow, serious, often quiet thought about a plan, an idea, or a possibility. Stronger and more deliberate than 'consider'.",
+   "exampleBook": "He stood at the window, contemplating the grey sea.",
+   "exampleLearning": "Before changing careers, she spent months contemplating the risks.",
+   "grammar": "Transitive verb. Patterns: contemplate + noun, contemplate + -ing form (contemplate leaving). NOT followed by 'to' + infinitive.",
+   "collocations": [
+    "contemplate the possibility",
+    "contemplate leaving",
+    "seriously contemplate"
+   ],
+   "synonyms": [
+    "ponder",
+    "consider",
+    "reflect on",
+    "mull over"
+   ],
+   "antonyms": [
+    "ignore",
+    "disregard"
+   ],
+   "wordForms": "noun: contemplation; adjective: contemplative",
+   "book": "Ready for C1 Advanced",
+   "chapterPage": "Unit 1",
+   "note": "Remember: contemplate DOING, never contemplate TO DO.",
+   "tags": [
+    "academic",
+    "literary"
+   ],
+   "difficulty": "Medium",
+   "updatedAt": "2026-07-08T00:00:00.000Z",
+   "dateAdded": "2026-07-08"
+  },
+  {
+   "id": "sample-subtle",
+   "word": "subtle",
+   "pos": "adjective",
+   "ipa": "/ˈsʌtl/",
+   "definition": "Not obvious; delicate and difficult to notice.",
+   "explanation": "Describes something small, gentle, or clever that is easy to miss — a change, a flavor, a hint, a difference. The 'b' is silent.",
+   "exampleBook": "There was a subtle shift in his tone, so slight that only she noticed it.",
+   "exampleLearning": "The new design makes subtle improvements that you only notice after a while.",
+   "grammar": "Gradable adjective. Comparative: subtler (or more subtle), subtlest. Silent 'b'.",
+   "collocations": [
+    "subtle difference",
+    "subtle change",
+    "subtle hint"
+   ],
+   "synonyms": [
+    "faint",
+    "understated",
+    "delicate",
+    "nuanced"
+   ],
+   "antonyms": [
+    "obvious",
+    "blatant",
+    "glaring"
+   ],
+   "wordForms": "noun: subtlety; adverb: subtly",
+   "book": "Ready for C1 Advanced",
+   "chapterPage": "Unit 2",
+   "note": "Silent 'b'! Pronounced 'SUH-tl'.",
+   "tags": [
+    "literary",
+    "pronunciation"
+   ],
+   "difficulty": "Medium",
+   "updatedAt": "2026-07-08T00:00:00.000Z",
+   "dateAdded": "2026-07-08"
+  },
+  {
+   "id": "sample-carry-out",
+   "word": "carry out",
+   "pos": "phrasal verb",
+   "ipa": "/ˌkæri ˈaʊt/",
+   "definition": "To do or complete a task, plan, or promise.",
+   "explanation": "A very common phrasal verb in academic and professional English, used for performing planned work: experiments, research, surveys, orders.",
+   "exampleBook": "Researchers carried out a series of interviews across five countries.",
+   "exampleLearning": "The team carried out a survey to verify the results.",
+   "grammar": "Transitive and separable: carry out a plan / carry a plan out. Passive is common: 'The study was carried out in 2024.'",
+   "collocations": [
+    "carry out research",
+    "carry out an experiment",
+    "carry out a survey"
+   ],
+   "synonyms": [
+    "perform",
+    "conduct",
+    "execute",
+    "implement"
+   ],
+   "antonyms": [
+    "abandon",
+    "neglect"
+   ],
+   "wordForms": "compare: execution, implementation",
+   "book": "Ready for C1 Advanced",
+   "chapterPage": "Unit 3",
+   "note": "Preferred verb for experiments/research in academic writing.",
+   "tags": [
+    "phrasal verb",
+    "academic"
+   ],
+   "difficulty": "Easy",
+   "updatedAt": "2026-07-08T00:00:00.000Z",
+   "dateAdded": "2026-07-08"
+  },
+  {
+   "id": "sample-notwithstanding",
+   "word": "notwithstanding",
+   "pos": "preposition",
+   "ipa": "/ˌnɒtwɪθˈstændɪŋ/",
+   "definition": "Despite; in spite of.",
+   "explanation": "A formal word found in legal, academic, and literary writing. Unusually, it can come before or after the noun: 'notwithstanding the delay' or 'the delay notwithstanding'.",
+   "exampleBook": "Notwithstanding the objections of the board, the plan proceeded.",
+   "exampleLearning": "Her inexperience notwithstanding, she handled the negotiation brilliantly.",
+   "grammar": "Preposition (can follow its object), also adverb. Register: formal/legal.",
+   "collocations": [
+    "notwithstanding the fact that",
+    "objections notwithstanding"
+   ],
+   "synonyms": [
+    "despite",
+    "in spite of",
+    "regardless of"
+   ],
+   "antonyms": [
+    "because of",
+    "owing to"
+   ],
+   "wordForms": "functions as preposition, adverb, and (rarely) conjunction",
+   "book": "Ready for C1 Advanced",
+   "chapterPage": "Unit 4",
+   "note": "Impressive in formal writing, but don't overuse it.",
+   "tags": [
+    "formal",
+    "grammar"
+   ],
+   "difficulty": "Hard",
+   "updatedAt": "2026-07-08T00:00:00.000Z",
+   "dateAdded": "2026-07-08"
+  }
+ ],
+ "deleted": []
+}

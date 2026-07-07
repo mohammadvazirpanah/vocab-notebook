@@ -1,0 +1,1784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Vocabulary Notebook</title>
+<style>
+/* ============================================================
+   THEME VARIABLES
+   Light theme is the default (:root). Dark theme applies either
+   when the user's OS prefers dark (and no manual choice is set),
+   or when the toggle sets data-theme="dark" on <html>.
+   ============================================================ */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eef0f4;
+  --text: #1c2333;
+  --muted: #667085;
+  --border: #e3e6ec;
+  --accent: #4f46e5;
+  --accent-soft: #eef2ff;
+  --accent-text: #ffffff;
+  --shadow: 0 1px 3px rgba(16,24,40,.07), 0 6px 18px rgba(16,24,40,.05);
+  --shadow-lg: 0 8px 30px rgba(16,24,40,.16);
+  --easy: #16a34a;    --easy-bg: #e7f6ec;
+  --medium: #b45309;  --medium-bg: #fdf1df;
+  --hard: #dc2626;    --hard-bg: #fdeaea;
+  --st-new: #2563eb;      --st-new-bg: #e8f0fe;
+  --st-learning: #b45309; --st-learning-bg: #fdf1df;
+  --st-familiar: #0d9488; --st-familiar-bg: #e2f5f3;
+  --st-mastered: #16a34a; --st-mastered-bg: #e7f6ec;
+  --grammar: #9333ea; --grammar-bg: #f3e8ff;
+  --danger: #dc2626;
+}
+[data-theme="dark"] {
+  --bg: #0e1015;
+  --surface: #181b23;
+  --surface-2: #21252f;
+  --text: #e7e9ee;
+  --muted: #98a2b3;
+  --border: #2a2f3b;
+  --accent: #818cf8;
+  --accent-soft: #26294a;
+  --accent-text: #0e1015;
+  --shadow: 0 1px 3px rgba(0,0,0,.4);
+  --shadow-lg: 0 10px 34px rgba(0,0,0,.55);
+  --easy: #4ade80;    --easy-bg: #14301e;
+  --medium: #fbbf24;  --medium-bg: #33270e;
+  --hard: #f87171;    --hard-bg: #391717;
+  --st-new: #60a5fa;      --st-new-bg: #16233b;
+  --st-learning: #fbbf24; --st-learning-bg: #33270e;
+  --st-familiar: #2dd4bf; --st-familiar-bg: #10302c;
+  --st-mastered: #4ade80; --st-mastered-bg: #14301e;
+  --grammar: #c084fc; --grammar-bg: #32204a;
+  --danger: #f87171;
+}
+/* System preference used only when the user hasn't chosen manually */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1015; --surface: #181b23; --surface-2: #21252f;
+    --text: #e7e9ee; --muted: #98a2b3; --border: #2a2f3b;
+    --accent: #818cf8; --accent-soft: #26294a; --accent-text: #0e1015;
+    --shadow: 0 1px 3px rgba(0,0,0,.4);
+    --shadow-lg: 0 10px 34px rgba(0,0,0,.55);
+    --easy: #4ade80;    --easy-bg: #14301e;
+    --medium: #fbbf24;  --medium-bg: #33270e;
+    --hard: #f87171;    --hard-bg: #391717;
+    --st-new: #60a5fa;      --st-new-bg: #16233b;
+    --st-learning: #fbbf24; --st-learning-bg: #33270e;
+    --st-familiar: #2dd4bf; --st-familiar-bg: #10302c;
+    --st-mastered: #4ade80; --st-mastered-bg: #14301e;
+    --grammar: #c084fc; --grammar-bg: #32204a;
+    --danger: #f87171;
+  }
+}
+
+/* ============ BASE ============ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg); color: var(--text);
+  line-height: 1.55; min-height: 100vh;
+  transition: background .25s, color .25s;
+}
+.serif { font-family: Georgia, "Times New Roman", serif; }
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select, textarea {
+  font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  width: 100%; transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+button:focus-visible { border-radius: 8px; }
+textarea { resize: vertical; min-height: 60px; }
+label { font-size: .8rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 4px; }
+
+.container { max-width: 1180px; margin: 0 auto; padding: 0 20px 60px; }
+
+/* ============ HEADER ============ */
+header.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-inner {
+  max-width: 1180px; margin: 0 auto; padding: 12px 20px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.brand .logo {
+  width: 38px; height: 38px; border-radius: 10px; background: var(--accent);
+  color: var(--accent-text); display: grid; place-items: center;
+  font-size: 1.25rem; font-weight: 700;
+}
+.brand h1 { font-size: 1.12rem; }
+.brand small { display: block; color: var(--muted); font-weight: 400; font-size: .74rem; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 9px; font-weight: 600; font-size: .87rem;
+  border: 1px solid var(--border); background: var(--surface);
+  transition: transform .12s, background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--surface-2); }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn-primary:hover { background: var(--accent); filter: brightness(1.08); }
+.btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.btn-sm { padding: 5px 10px; font-size: .8rem; }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--surface); font-size: 1rem;
+  transition: background .15s, transform .12s; flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--surface-2); }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ STATS DASHBOARD ============ */
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px; margin: 22px 0;
+}
+.stat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 12px;
+  animation: fadeUp .35s ease both;
+}
+.stat .s-icon {
+  width: 40px; height: 40px; border-radius: 10px; display: grid;
+  place-items: center; font-size: 1.15rem; flex-shrink: 0;
+}
+.stat .s-num { font-size: 1.45rem; font-weight: 700; line-height: 1.15; }
+.stat .s-label { font-size: .74rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+/* ============ TABS ============ */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+.tab {
+  padding: 9px 16px; font-weight: 600; font-size: .92rem; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 8px 8px 0 0;
+  transition: color .15s, border-color .15s, background .15s; white-space: nowrap;
+}
+.tab:hover { background: var(--surface-2); }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ============ TOOLBAR (search + filters) ============ */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; align-items: end;
+}
+.toolbar .field { flex: 1 1 130px; min-width: 120px; }
+.toolbar .search-field { flex: 2 1 220px; }
+.search-wrap { position: relative; }
+.search-wrap input { padding-left: 34px; }
+.search-wrap .s-glyph { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+/* ============ WORD / GRAMMAR CARDS GRID ============ */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  animation: fadeUp .3s ease both; cursor: pointer;
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.card .c-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.card .c-word { font-size: 1.22rem; font-weight: 700; }
+.card .c-pos { font-style: italic; color: var(--muted); font-size: .84rem; }
+.card .c-def { color: var(--text); font-size: .92rem; min-height: 2.4em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card .c-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.card .c-actions {
+  display: flex; gap: 6px; margin-top: auto; padding-top: 8px;
+  border-top: 1px dashed var(--border); flex-wrap: wrap;
+}
+.card.g-card { border-left: 4px solid var(--grammar); }
+.badge {
+  font-size: .7rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  letter-spacing: .02em;
+}
+.badge.tag { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.b-easy   { background: var(--easy-bg);   color: var(--easy); }
+.b-medium { background: var(--medium-bg); color: var(--medium); }
+.b-hard   { background: var(--hard-bg);   color: var(--hard); }
+.b-new      { background: var(--st-new-bg);      color: var(--st-new); }
+.b-learning { background: var(--st-learning-bg); color: var(--st-learning); }
+.b-familiar { background: var(--st-familiar-bg); color: var(--st-familiar); }
+.b-mastered { background: var(--st-mastered-bg); color: var(--st-mastered); }
+.b-grammar  { background: var(--grammar-bg); color: var(--grammar); }
+.due-dot { color: var(--hard); font-size: .74rem; font-weight: 700; }
+
+.empty {
+  text-align: center; color: var(--muted); padding: 60px 20px;
+  border: 2px dashed var(--border); border-radius: 16px; grid-column: 1/-1;
+}
+.empty .big { font-size: 2.2rem; margin-bottom: 8px; }
+
+/* ============ REVIEW MODE ============ */
+.review-wrap { max-width: 620px; margin: 0 auto; }
+.review-progress { color: var(--muted); font-size: .85rem; text-align: center; margin-bottom: 12px; }
+.flashcard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--shadow-lg); padding: 34px 30px; text-align: center;
+  animation: fadeUp .3s ease both;
+}
+.flashcard .f-word { font-size: 2.1rem; font-weight: 700; }
+.flashcard .f-pos { color: var(--muted); font-style: italic; margin-top: 2px; }
+.flashcard .f-ipa { color: var(--accent); margin-top: 4px; font-size: 1.02rem; }
+.f-answer { text-align: left; margin-top: 22px; border-top: 1px dashed var(--border); padding-top: 18px;
+  display: flex; flex-direction: column; gap: 12px; animation: fadeUp .25s ease both; }
+.f-block h4 {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); margin-bottom: 3px;
+}
+.f-block p { font-size: .95rem; }
+.grade-row { display: flex; gap: 8px; margin-top: 22px; justify-content: center; flex-wrap: wrap; }
+.grade-btn { flex: 1 1 100px; max-width: 140px; padding: 11px 8px; border-radius: 11px;
+  font-weight: 700; border: 1px solid var(--border); transition: transform .12s, filter .15s; }
+.grade-btn:hover { filter: brightness(1.07); }
+.grade-btn:active { transform: scale(.96); }
+.grade-btn small { display: block; font-weight: 500; font-size: .7rem; opacity: .75; }
+.g-again { background: var(--hard-bg);   color: var(--hard); }
+.g-hard  { background: var(--medium-bg); color: var(--medium); }
+.g-good  { background: var(--st-familiar-bg); color: var(--st-familiar); }
+.g-easy  { background: var(--easy-bg);   color: var(--easy); }
+
+/* ============ BOOKS VIEW ============ */
+.book-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; box-shadow: var(--shadow); cursor: pointer;
+  transition: transform .15s, box-shadow .15s; animation: fadeUp .3s ease both;
+}
+.book-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.book-card .bk-title { font-weight: 700; font-size: 1.06rem; display: flex; gap: 8px; align-items: center; }
+.book-card .bk-count { color: var(--muted); font-size: .85rem; margin: 4px 0 10px; }
+.bk-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--surface-2); }
+.bk-bar span { height: 100%; }
+.bk-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: .72rem; color: var(--muted); }
+.bk-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+
+/* ============ MODALS ============ */
+dialog {
+  border: none; border-radius: 18px; background: var(--surface); color: var(--text);
+  box-shadow: var(--shadow-lg); padding: 0; width: min(720px, 92vw);
+  max-height: 88vh;
+}
+dialog::backdrop { background: rgba(10,12,18,.55); backdrop-filter: blur(2px); }
+dialog[open] { animation: pop .22s ease; }
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 22px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface); z-index: 2; border-radius: 18px 18px 0 0;
+}
+.modal-head h2 { font-size: 1.1rem; }
+.modal-body { padding: 20px 22px; overflow-y: auto; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--border);
+  position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 18px 18px; flex-wrap: wrap; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.form-grid .full { grid-column: 1 / -1; }
+fieldset { border: 1px solid var(--border); border-radius: 12px; padding: 12px; grid-column: 1/-1; }
+fieldset legend { font-size: .78rem; font-weight: 700; color: var(--muted); padding: 0 6px; text-transform: uppercase; letter-spacing: .05em; }
+.hint { font-size: .72rem; color: var(--muted); margin-top: 3px; }
+.more-toggle {
+  grid-column: 1/-1; text-align: center; color: var(--accent); font-weight: 600;
+  padding: 8px; border: 1px dashed var(--border); border-radius: 10px; font-size: .85rem;
+}
+.more-toggle:hover { background: var(--surface-2); }
+.lookup-row { display: flex; gap: 8px; align-items: stretch; }
+.lookup-row input { flex: 1; }
+
+/* Detail modal */
+.detail-word { font-size: 1.7rem; font-weight: 700; }
+.detail-sub { color: var(--muted); margin-bottom: 4px; }
+.detail-ipa { color: var(--accent); }
+.d-section { margin-top: 14px; }
+.d-section h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 3px; }
+.d-section p, .d-section li { font-size: .94rem; white-space: pre-wrap; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+blockquote {
+  border-left: 3px solid var(--accent); padding: 6px 12px; background: var(--surface-2);
+  border-radius: 0 8px 8px 0; font-style: italic; white-space: pre-wrap;
+}
+
+/* ============ TOAST ============ */
+#toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px; z-index: 300; align-items: center; width: max-content; max-width: 92vw; }
+.toast {
+  background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 10px;
+  font-size: .88rem; font-weight: 600; box-shadow: var(--shadow-lg);
+  animation: toastIn .25s ease; text-align: center;
+}
+
+/* ============ ANIMATIONS ============ */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .brand h1 { font-size: 1rem; }
+  .stat .s-num { font-size: 1.2rem; }
+  .flashcard { padding: 24px 16px; }
+  .topbar-actions { width: 100%; justify-content: flex-end; }
+}
+.topbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo serif" aria-hidden="true">R</div>
+      <h1>Reading Vocabulary Notebook<small>Shared word &amp; grammar notebook for our study group</small></h1>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" id="addWordBtn">＋ Word</button>
+      <button class="btn" id="addGrammarBtn">＋ Grammar</button>
+      <button class="btn" id="syncBtn" title="Pull friends' words from GitHub and push yours"><span id="syncIcon">⇅</span> Sync</button>
+      <button class="icon-btn" id="settingsBtn" title="Settings (name, GitHub token)" aria-label="Settings">⚙</button>
+      <button class="icon-btn" id="menuBtn" title="Backup: export / import" aria-label="Backup menu">⭳</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" aria-label="Import JSON backup file">
+      <button class="icon-btn" id="themeToggle" title="Toggle light / dark mode" aria-label="Toggle light or dark mode">◐</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- ================= DASHBOARD STATS ================= -->
+  <section class="stats" aria-label="Statistics">
+    <div class="stat"><div class="s-icon" style="background:var(--accent-soft)">📚</div>
+      <div><div class="s-num" id="statTotal">0</div><div class="s-label">Words</div></div></div>
+    <div class="stat"><div class="s-icon" style="background:var(--st-new-bg)">✨</div>
+      <div><div class="s-num" id="statNew">0</div><div class="s-label">New</div></div></div>
+    <div class="stat"><div class="s-icon" style="background:var(--st-learning-bg)">📖</div>
+      <div><div class="s-num" id="statLearning">0</div><div class="s-label">Learning</div></div></div>
+    <div class="stat"><div class="s-icon" style="background:var(--st-mastered-bg)">🏆</div>
+      <div><div class="s-num" id="statMastered">0</div><div class="s-label">Mastered</div></div></div>
+    <div class="stat"><div class="s-icon" style="background:var(--hard-bg)">⏰</div>
+      <div><div class="s-num" id="statDue">0</div><div class="s-label">Due Today</div></div></div>
+    <div class="stat"><div class="s-icon" style="background:var(--grammar-bg)">📐</div>
+      <div><div class="s-num" id="statGrammar">0</div><div class="s-label">Grammar</div></div></div>
+  </section>
+
+  <!-- ================= TABS ================= -->
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-library" aria-selected="true" aria-controls="view-library">Words</button>
+    <button class="tab" role="tab" id="tab-grammar" aria-selected="false" aria-controls="view-grammar">Grammar</button>
+    <button class="tab" role="tab" id="tab-review" aria-selected="false" aria-controls="view-review">Review</button>
+    <button class="tab" role="tab" id="tab-books" aria-selected="false" aria-controls="view-books">Books</button>
+  </nav>
+
+  <!-- ================= LIBRARY (WORDS) VIEW ================= -->
+  <section id="view-library" role="tabpanel" aria-labelledby="tab-library">
+    <div class="toolbar">
+      <div class="field search-field">
+        <label for="searchInput">Search</label>
+        <div class="search-wrap"><span class="s-glyph" aria-hidden="true">🔍</span>
+          <input id="searchInput" type="search" placeholder="Word, definition, synonym, tag, book…"></div>
+      </div>
+      <div class="field"><label for="filterPos">Part of speech</label>
+        <select id="filterPos"><option value="">All</option></select></div>
+      <div class="field"><label for="filterDifficulty">Difficulty</label>
+        <select id="filterDifficulty"><option value="">All</option>
+          <option>Easy</option><option>Medium</option><option>Hard</option></select></div>
+      <div class="field"><label for="filterStatus">Status</label>
+        <select id="filterStatus"><option value="">All</option>
+          <option>New</option><option>Learning</option><option>Familiar</option><option>Mastered</option></select></div>
+      <div class="field"><label for="filterBook">Book</label>
+        <select id="filterBook"><option value="">All</option></select></div>
+      <div class="field"><label for="filterTag">Tag</label>
+        <select id="filterTag"><option value="">All</option></select></div>
+      <div class="field"><label for="sortSelect">Sort by</label>
+        <select id="sortSelect">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="alpha">A → Z</option>
+          <option value="alpha-desc">Z → A</option>
+          <option value="difficulty">Difficulty</option>
+          <option value="status">Review status</option>
+        </select></div>
+    </div>
+    <div class="grid" id="wordGrid"></div>
+  </section>
+
+  <!-- ================= GRAMMAR VIEW ================= -->
+  <section id="view-grammar" role="tabpanel" aria-labelledby="tab-grammar" hidden>
+    <div class="toolbar">
+      <div class="field search-field">
+        <label for="gSearch">Search grammar</label>
+        <div class="search-wrap"><span class="s-glyph" aria-hidden="true">🔍</span>
+          <input id="gSearch" type="search" placeholder="Topic, rule, example…"></div>
+      </div>
+      <div class="field"><label for="gFilterTag">Tag</label>
+        <select id="gFilterTag"><option value="">All</option></select></div>
+      <div class="field" style="flex:0 0 auto"><label>&nbsp;</label>
+        <button class="btn btn-primary" id="addGrammarBtn2">＋ Add Grammar Note</button></div>
+    </div>
+    <div class="grid" id="grammarGrid"></div>
+  </section>
+
+  <!-- ================= REVIEW VIEW ================= -->
+  <section id="view-review" role="tabpanel" aria-labelledby="tab-review" hidden>
+    <div class="review-wrap" id="reviewArea"></div>
+  </section>
+
+  <!-- ================= BOOKS VIEW ================= -->
+  <section id="view-books" role="tabpanel" aria-labelledby="tab-books" hidden>
+    <div class="grid" id="bookGrid"></div>
+  </section>
+</main>
+
+<!-- ================= ADD / EDIT WORD MODAL ================= -->
+<dialog id="formModal" aria-labelledby="formTitle">
+  <form id="wordForm" method="dialog">
+    <div class="modal-head">
+      <h2 id="formTitle">Add New Word</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <!-- QUICK FIELDS: always visible — enough for fast entry while reading -->
+        <div class="full"><label for="fWord">Word or phrase *</label>
+          <div class="lookup-row">
+            <input id="fWord" required autocomplete="off" placeholder="Type the word…">
+            <button type="button" class="btn" id="lookupBtn" title="Auto-fill IPA, definition, synonyms from a free dictionary">🔎 Auto-fill</button>
+          </div>
+          <p class="hint">Auto-fill uses a free online dictionary (needs internet; phrases may not be found).</p>
+        </div>
+        <div class="full"><label for="fDefinition">Simple English definition *</label>
+          <input id="fDefinition" required placeholder="A short, clear definition"></div>
+        <div><label for="fPos">Part of speech</label>
+          <select id="fPos">
+            <option value="">—</option><option>noun</option><option>verb</option><option>adjective</option>
+            <option>adverb</option><option>phrasal verb</option><option>phrase</option><option>idiom</option>
+            <option>preposition</option><option>conjunction</option><option>pronoun</option>
+            <option>determiner</option><option>interjection</option>
+          </select></div>
+        <div><label for="fBook">Source book</label><input id="fBook" list="bookList"><datalist id="bookList"></datalist></div>
+
+        <!-- MORE FIELDS: collapsed by default to keep quick-add fast -->
+        <button type="button" class="more-toggle" id="moreToggle" aria-expanded="false">▾ More fields (examples, grammar, synonyms…)</button>
+        <div class="full" id="moreFields" hidden>
+          <div class="form-grid">
+            <div><label for="fIpa">Pronunciation / IPA</label><input id="fIpa" placeholder="/rɪˈlʌktənt/"></div>
+            <div><label for="fDifficulty">Difficulty</label>
+              <select id="fDifficulty"><option>Easy</option><option selected>Medium</option><option>Hard</option></select></div>
+            <div class="full"><label for="fExplanation">Detailed explanation</label>
+              <textarea id="fExplanation" placeholder="A longer explanation of meaning, nuance, and usage"></textarea></div>
+            <div class="full"><label for="fExampleBook">Example sentence from the book</label>
+              <textarea id="fExampleBook"></textarea></div>
+            <div class="full"><label for="fExampleLearning">Original example for learning</label>
+              <textarea id="fExampleLearning" placeholder="Write your own fresh example sentence"></textarea></div>
+            <div class="full"><label for="fGrammar">Grammar notes</label>
+              <textarea id="fGrammar" placeholder="e.g. countable/uncountable, transitive/intransitive, irregular forms, verb patterns, prepositions, common structures"></textarea></div>
+            <div><label for="fCollocations">Collocations</label><input id="fCollocations" placeholder="comma, separated, list"></div>
+            <div><label for="fWordForms">Related word forms</label><input id="fWordForms" placeholder="noun: …, verb: …, adj: …"></div>
+            <div><label for="fSynonyms">Synonyms</label><input id="fSynonyms" placeholder="comma, separated"></div>
+            <div><label for="fAntonyms">Antonyms</label><input id="fAntonyms" placeholder="comma, separated"></div>
+            <div><label for="fChapter">Chapter / page</label><input id="fChapter" placeholder="Unit 4, p. 52"></div>
+            <div><label for="fTags">Tags</label><input id="fTags" placeholder="academic, phrasal verb"></div>
+            <div><label for="fStatus">Review status</label>
+              <select id="fStatus"><option selected>New</option><option>Learning</option><option>Familiar</option><option>Mastered</option></select></div>
+            <div><label for="fNote">Personal note</label><input id="fNote"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary" id="formSaveBtn">Save Word</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= ADD / EDIT GRAMMAR MODAL ================= -->
+<dialog id="grammarModal" aria-labelledby="grammarTitle">
+  <form id="grammarForm" method="dialog">
+    <div class="modal-head">
+      <h2 id="grammarTitle">Add Grammar Note</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label for="gTitle">Topic / title *</label>
+          <input id="gTitle" required placeholder="e.g. Inversion after negative adverbials"></div>
+        <div class="full"><label for="gExplanation">Rule / explanation *</label>
+          <textarea id="gExplanation" required placeholder="Explain the rule in clear English"></textarea></div>
+        <div class="full"><label for="gStructure">Structure / pattern</label>
+          <textarea id="gStructure" placeholder="e.g. Never / Rarely / Not only + auxiliary + subject + verb"></textarea></div>
+        <div class="full"><label for="gExamples">Example sentences</label>
+          <textarea id="gExamples" placeholder="One example per line"></textarea></div>
+        <div class="full"><label for="gMistakes">Common mistakes</label>
+          <textarea id="gMistakes" placeholder="e.g. ✗ Never I have seen…  ✓ Never have I seen…"></textarea></div>
+        <div><label for="gBook">Source book</label><input id="gBook" list="bookList"></div>
+        <div><label for="gChapter">Unit / page</label><input id="gChapter" placeholder="Unit 2, p. 24"></div>
+        <div><label for="gTags">Tags</label><input id="gTags" placeholder="C1, conditionals, formal"></div>
+        <div><label for="gNote">Personal note</label><input id="gNote"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Grammar Note</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= DETAIL MODAL (words & grammar) ================= -->
+<dialog id="detailModal" aria-label="Details">
+  <div class="modal-head">
+    <h2 class="visually-hidden">Details</h2>
+    <div></div>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button>
+  </div>
+  <div class="modal-body" id="detailBody"></div>
+  <div class="modal-foot" id="detailFoot"></div>
+</dialog>
+
+<!-- ================= SETTINGS MODAL ================= -->
+<dialog id="settingsModal" aria-labelledby="settingsTitle">
+  <form id="settingsForm" method="dialog">
+    <div class="modal-head"><h2 id="settingsTitle">Settings</h2>
+      <button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="full"><label for="sName">Your name</label>
+          <input id="sName" placeholder="Shown on words you add, e.g. Mohammad"></div>
+        <div class="full"><label for="sRepo">GitHub repository</label>
+          <input id="sRepo" placeholder="username/vocab-notebook"></div>
+        <div class="full"><label for="sToken">GitHub token</label>
+          <input id="sToken" type="password" placeholder="github_pat_…" autocomplete="off">
+          <p class="hint">Needed only for Sync. Create one at
+            <strong>github.com → Settings → Developer settings → Fine-grained tokens</strong>:
+            choose “Only select repositories” → this repo → Permissions → Contents: <strong>Read and write</strong>.
+            The token is saved only in this browser.</p></div>
+        <div class="full"><p class="hint" id="lastSyncInfo"></p></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Settings</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ================= BACKUP (EXPORT / IMPORT) MODAL ================= -->
+<dialog id="backupModal" aria-labelledby="backupTitle">
+  <div class="modal-head"><h2 id="backupTitle">Backup</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body">
+    <p style="margin-bottom:14px">Your data also lives in the GitHub repo when you sync — these files are an extra local backup.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" id="exportJsonBtn">⭳ Export JSON (full backup)</button>
+      <button class="btn" id="exportCsvBtn">⭳ Export CSV (words)</button>
+      <button class="btn" id="importBtn">⭱ Import JSON backup</button>
+    </div>
+  </div>
+  <div class="modal-foot"><button class="btn" data-close>Close</button></div>
+</dialog>
+
+<!-- ================= IMPORT CONFIRM MODAL ================= -->
+<dialog id="importModal" aria-labelledby="importTitle">
+  <div class="modal-head"><h2 id="importTitle">Import Backup</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body" id="importBody"></div>
+  <div class="modal-foot">
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="button" class="btn" id="importMergeBtn">Merge</button>
+    <button type="button" class="btn btn-danger" id="importReplaceBtn">Replace All</button>
+  </div>
+</dialog>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ==================================================================
+   READING VOCABULARY NOTEBOOK — shared study-group edition
+   - Words + grammar notes stored locally in localStorage
+   - Optional GitHub sync: the shared list lives in a repo as
+     data/words.json and data/grammar.json; personal review progress
+     (status + spaced-repetition schedule) NEVER leaves this browser.
+   - Auto-fill uses the free dictionaryapi.dev (no key, no cost).
+   ================================================================== */
+
+const LS_WORDS    = "rvn.words";     // full local word entries (incl. personal srs/status)
+const LS_GRAMMAR  = "rvn.grammar";   // grammar note entries
+const LS_DELETED  = "rvn.deleted";   // tombstones so deletions sync too
+const LS_SETTINGS = "rvn.settings";  // { name, repo, token, lastSync }
+const LS_THEME    = "rvn.theme";
+const LS_INIT     = "rvn.initialized";
+const LS_LASTBOOK = "rvn.lastBook";  // prefill the book field with the last one used
+
+const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook";
+const DEFAULT_BOOK = "Ready for C1 Advanced";
+
+/* ---------- small utilities ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const todayStr = () => new Date().toISOString().slice(0, 10);
+const nowIso = () => new Date().toISOString();
+const addDays = (dateStr, n) => {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+const uid = () => (crypto.randomUUID ? crypto.randomUUID()
+  : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+const splitList = s => String(s || "").split(",").map(x => x.trim()).filter(Boolean);
+const $ = id => document.getElementById(id);
+const toast = msg => {
+  const t = document.createElement("div");
+  t.className = "toast"; t.textContent = msg;
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+};
+
+/* UTF-8-safe base64 (GitHub contents API stores files base64-encoded) */
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64decode(b64) {
+  const bin = atob(b64.replace(/\n/g, ""));
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/* ---------- settings ---------- */
+let settings = { name: "", repo: DEFAULT_REPO, token: "", lastSync: null };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(LS_SETTINGS)) || {}); } catch {}
+function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
+
+/* ==================================================================
+   DATA MODEL
+   normalize() repairs missing fields so old backups / hand-edited
+   files / friends' entries always load into a consistent shape.
+   ================================================================== */
+function normalize(w) {
+  return {
+    id: w.id || uid(),
+    word: String(w.word || "").trim(),
+    pos: w.pos || "",
+    ipa: w.ipa || "",
+    definition: w.definition || "",
+    explanation: w.explanation || "",
+    exampleBook: w.exampleBook || "",
+    exampleLearning: w.exampleLearning || "",
+    grammar: w.grammar || "",
+    collocations: Array.isArray(w.collocations) ? w.collocations : splitList(w.collocations),
+    synonyms: Array.isArray(w.synonyms) ? w.synonyms : splitList(w.synonyms),
+    antonyms: Array.isArray(w.antonyms) ? w.antonyms : splitList(w.antonyms),
+    wordForms: w.wordForms || "",
+    book: w.book || "",
+    chapterPage: w.chapterPage || "",
+    dateAdded: w.dateAdded || todayStr(),
+    updatedAt: w.updatedAt || nowIso(),
+    addedBy: w.addedBy || "",
+    note: w.note || "",
+    tags: Array.isArray(w.tags) ? w.tags : splitList(w.tags),
+    difficulty: ["Easy", "Medium", "Hard"].includes(w.difficulty) ? w.difficulty : "Medium",
+    // Personal fields — kept local, never pushed to the shared repo:
+    status: ["New", "Learning", "Familiar", "Mastered"].includes(w.status) ? w.status : "New",
+    srs: {
+      interval: w.srs?.interval ?? 0,
+      due: w.srs?.due || todayStr(),
+      last: w.srs?.last || null,
+      reviews: w.srs?.reviews ?? 0
+    }
+  };
+}
+
+function normalizeGrammar(g) {
+  return {
+    id: g.id || uid(),
+    title: String(g.title || "").trim(),
+    explanation: g.explanation || "",
+    structure: g.structure || "",
+    examples: g.examples || "",
+    mistakes: g.mistakes || "",
+    book: g.book || "",
+    chapterPage: g.chapterPage || "",
+    tags: Array.isArray(g.tags) ? g.tags : splitList(g.tags),
+    note: g.note || "",
+    dateAdded: g.dateAdded || todayStr(),
+    updatedAt: g.updatedAt || nowIso(),
+    addedBy: g.addedBy || ""
+  };
+}
+
+/* Shape pushed to the shared repo: everything EXCEPT personal progress */
+function toSharedWord(w) {
+  const { status, srs, ...shared } = w;
+  return shared;
+}
+
+let words = [];
+let grammarNotes = [];
+let deleted = [];   // tombstones: { id, kind: "word"|"grammar", deletedAt }
+
+function loadData() {
+  try {
+    const w = localStorage.getItem(LS_WORDS);
+    if (w) words = JSON.parse(w).map(normalize);
+    const g = localStorage.getItem(LS_GRAMMAR);
+    if (g) grammarNotes = JSON.parse(g).map(normalizeGrammar);
+    const d = localStorage.getItem(LS_DELETED);
+    if (d) deleted = JSON.parse(d);
+  } catch (e) { console.warn("Could not parse saved data:", e); }
+  // First run only: seed samples (fixed ids so a later sync won't duplicate them)
+  if (!localStorage.getItem(LS_INIT)) {
+    if (!words.length) words = SAMPLE_WORDS.map(normalize);
+    if (!grammarNotes.length) grammarNotes = SAMPLE_GRAMMAR.map(normalizeGrammar);
+    saveData();
+    localStorage.setItem(LS_INIT, "1");
+  }
+}
+function saveData() {
+  localStorage.setItem(LS_WORDS, JSON.stringify(words));
+  localStorage.setItem(LS_GRAMMAR, JSON.stringify(grammarNotes));
+  localStorage.setItem(LS_DELETED, JSON.stringify(deleted));
+}
+
+/* ---------- sample entries (fixed ids = sync-safe) ---------- */
+const SAMPLE_WORDS = [
+  {
+    id: "sample-reluctant",
+    word: "reluctant", pos: "adjective", ipa: "/rɪˈlʌktənt/",
+    definition: "Not willing to do something; hesitant.",
+    explanation: "Used when someone agrees to do something but does not really want to, often because of doubt or fear. It describes an inner resistance rather than an open refusal.",
+    exampleBook: "She was reluctant to leave the safety of the lighthouse, even as the storm calmed.",
+    exampleLearning: "He was reluctant to admit his mistake in front of the whole team.",
+    grammar: "Gradable adjective. Followed by 'to' + infinitive: reluctant to do something. Noun form takes 'reluctance to'.",
+    collocations: ["reluctant to admit", "reluctant to accept", "deeply reluctant"],
+    synonyms: ["unwilling", "hesitant", "disinclined"],
+    antonyms: ["eager", "willing", "keen"],
+    wordForms: "noun: reluctance; adverb: reluctantly",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 1",
+    note: "Often paired with 'to admit' — good for formal writing.",
+    tags: ["academic", "emotions"], difficulty: "Easy",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  },
+  {
+    id: "sample-contemplate",
+    word: "contemplate", pos: "verb", ipa: "/ˈkɒntəmpleɪt/",
+    definition: "To think about something deeply and for a long time.",
+    explanation: "Suggests slow, serious, often quiet thought about a plan, an idea, or a possibility. Stronger and more deliberate than 'consider'.",
+    exampleBook: "He stood at the window, contemplating the grey sea.",
+    exampleLearning: "Before changing careers, she spent months contemplating the risks.",
+    grammar: "Transitive verb. Patterns: contemplate + noun, contemplate + -ing form (contemplate leaving). NOT followed by 'to' + infinitive.",
+    collocations: ["contemplate the possibility", "contemplate leaving", "seriously contemplate"],
+    synonyms: ["ponder", "consider", "reflect on", "mull over"],
+    antonyms: ["ignore", "disregard"],
+    wordForms: "noun: contemplation; adjective: contemplative",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 1",
+    note: "Remember: contemplate DOING, never contemplate TO DO.",
+    tags: ["academic", "literary"], difficulty: "Medium",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  },
+  {
+    id: "sample-subtle",
+    word: "subtle", pos: "adjective", ipa: "/ˈsʌtl/",
+    definition: "Not obvious; delicate and difficult to notice.",
+    explanation: "Describes something small, gentle, or clever that is easy to miss — a change, a flavor, a hint, a difference. The 'b' is silent.",
+    exampleBook: "There was a subtle shift in his tone, so slight that only she noticed it.",
+    exampleLearning: "The new design makes subtle improvements that you only notice after a while.",
+    grammar: "Gradable adjective. Comparative: subtler (or more subtle), subtlest. Silent 'b'.",
+    collocations: ["subtle difference", "subtle change", "subtle hint"],
+    synonyms: ["faint", "understated", "delicate", "nuanced"],
+    antonyms: ["obvious", "blatant", "glaring"],
+    wordForms: "noun: subtlety; adverb: subtly",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 2",
+    note: "Silent 'b'! Pronounced 'SUH-tl'.",
+    tags: ["literary", "pronunciation"], difficulty: "Medium",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  },
+  {
+    id: "sample-carry-out",
+    word: "carry out", pos: "phrasal verb", ipa: "/ˌkæri ˈaʊt/",
+    definition: "To do or complete a task, plan, or promise.",
+    explanation: "A very common phrasal verb in academic and professional English, used for performing planned work: experiments, research, surveys, orders.",
+    exampleBook: "Researchers carried out a series of interviews across five countries.",
+    exampleLearning: "The team carried out a survey to verify the results.",
+    grammar: "Transitive and separable: carry out a plan / carry a plan out. Passive is common: 'The study was carried out in 2024.'",
+    collocations: ["carry out research", "carry out an experiment", "carry out a survey"],
+    synonyms: ["perform", "conduct", "execute", "implement"],
+    antonyms: ["abandon", "neglect"],
+    wordForms: "compare: execution, implementation",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 3",
+    note: "Preferred verb for experiments/research in academic writing.",
+    tags: ["phrasal verb", "academic"], difficulty: "Easy",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  },
+  {
+    id: "sample-notwithstanding",
+    word: "notwithstanding", pos: "preposition", ipa: "/ˌnɒtwɪθˈstændɪŋ/",
+    definition: "Despite; in spite of.",
+    explanation: "A formal word found in legal, academic, and literary writing. Unusually, it can come before or after the noun: 'notwithstanding the delay' or 'the delay notwithstanding'.",
+    exampleBook: "Notwithstanding the objections of the board, the plan proceeded.",
+    exampleLearning: "Her inexperience notwithstanding, she handled the negotiation brilliantly.",
+    grammar: "Preposition (can follow its object), also adverb. Register: formal/legal.",
+    collocations: ["notwithstanding the fact that", "objections notwithstanding"],
+    synonyms: ["despite", "in spite of", "regardless of"],
+    antonyms: ["because of", "owing to"],
+    wordForms: "functions as preposition, adverb, and (rarely) conjunction",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 4",
+    note: "Impressive in formal writing, but don't overuse it.",
+    tags: ["formal", "grammar"], difficulty: "Hard",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  }
+];
+
+const SAMPLE_GRAMMAR = [
+  {
+    id: "sample-g-inversion",
+    title: "Inversion after negative adverbials",
+    explanation: "In formal English, when a sentence starts with a negative or limiting adverbial (never, rarely, not only, under no circumstances, no sooner), the subject and auxiliary verb are inverted — like a question. It adds emphasis and a formal tone; very common in C1 writing tasks.",
+    structure: "Negative adverbial + auxiliary + subject + main verb\nNot only + aux + subject…, but (also)…\nNo sooner + had + subject + past participle… than…",
+    examples: "Never have I seen such a beautiful sunset.\nNot only did she pass the exam, but she also got the highest mark.\nNo sooner had we arrived than it started to rain.\nUnder no circumstances should you open this door.",
+    mistakes: "✗ Never I have seen…  →  ✓ Never have I seen…\n✗ No sooner we had arrived…  →  ✓ No sooner had we arrived…",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 2",
+    tags: ["C1", "formal", "inversion"],
+    note: "Great for essays — use once or twice, not in every sentence.",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  },
+  {
+    id: "sample-g-cleft",
+    title: "Cleft sentences (It was… / What I need is…)",
+    explanation: "Cleft sentences split one message into two clauses to emphasize a particular part. 'It-clefts' highlight who/what/when; 'wh-clefts' (What…) highlight the whole action or thing. They are heavily tested at C1 in key-word transformations.",
+    structure: "It + be + emphasized part + that/who…\nWhat + subject + verb + be + emphasized part",
+    examples: "It was John who broke the window, not me.\nIt was in 2019 that we first met.\nWhat I really need is a long holiday.\nWhat annoyed me most was his silence.",
+    mistakes: "✗ It was John which broke…  →  ✓ It was John who broke…\n✗ What I need it is a holiday.  →  ✓ What I need is a holiday.",
+    book: "Ready for C1 Advanced", chapterPage: "Unit 5",
+    tags: ["C1", "emphasis", "transformations"],
+    note: "",
+    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
+  }
+];
+
+/* ==================================================================
+   SPACED REPETITION (personal — never synced)
+   ================================================================== */
+function gradeWord(w, grade) {
+  const s = w.srs;
+  if (grade === "again")     s.interval = 0;
+  else if (grade === "hard") s.interval = s.interval > 0 ? Math.ceil(s.interval * 1.2) : 1;
+  else if (grade === "good") s.interval = s.interval > 0 ? s.interval * 2 : 1;
+  else if (grade === "easy") s.interval = s.interval > 0 ? s.interval * 3 : 3;
+  s.interval = Math.min(s.interval, 365);
+  s.due = addDays(todayStr(), s.interval);
+  s.last = todayStr();
+  s.reviews++;
+  if (grade === "again")      w.status = "Learning";
+  else if (s.interval >= 21)  w.status = "Mastered";
+  else if (s.interval >= 7)   w.status = "Familiar";
+  else                        w.status = "Learning";
+  // NOTE: grading does NOT touch updatedAt — personal progress stays personal
+}
+const isDue = w => w.srs.due <= todayStr();
+
+/* ==================================================================
+   RENDERING — stats, word cards, grammar cards, books
+   ================================================================== */
+function renderStats() {
+  $("statTotal").textContent = words.length;
+  $("statNew").textContent = words.filter(w => w.status === "New").length;
+  $("statLearning").textContent = words.filter(w => w.status === "Learning").length;
+  $("statMastered").textContent = words.filter(w => w.status === "Mastered").length;
+  $("statDue").textContent = words.filter(isDue).length;
+  $("statGrammar").textContent = grammarNotes.length;
+}
+
+const DIFF_ORDER = { Easy: 0, Medium: 1, Hard: 2 };
+const STATUS_ORDER = { New: 0, Learning: 1, Familiar: 2, Mastered: 3 };
+
+function getFiltered() {
+  const q = $("searchInput").value.trim().toLowerCase();
+  const fPos = $("filterPos").value, fDiff = $("filterDifficulty").value,
+        fStat = $("filterStatus").value, fBook = $("filterBook").value,
+        fTag = $("filterTag").value, sort = $("sortSelect").value;
+  let list = words.filter(w => {
+    if (fPos && w.pos !== fPos) return false;
+    if (fDiff && w.difficulty !== fDiff) return false;
+    if (fStat && w.status !== fStat) return false;
+    if (fBook && w.book !== fBook) return false;
+    if (fTag && !w.tags.includes(fTag)) return false;
+    if (q) {
+      const hay = [w.word, w.definition, w.explanation, w.book,
+        w.exampleBook, w.exampleLearning,
+        w.synonyms.join(" "), w.tags.join(" ")].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  list.sort((a, b) => {
+    switch (sort) {
+      case "alpha":       return a.word.localeCompare(b.word);
+      case "alpha-desc":  return b.word.localeCompare(a.word);
+      case "date-asc":    return a.dateAdded.localeCompare(b.dateAdded);
+      case "difficulty":  return DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty];
+      case "status":      return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      default:            return b.dateAdded.localeCompare(a.dateAdded);
+    }
+  });
+  return list;
+}
+
+function badge(text, cls) { return `<span class="badge ${cls}">${esc(text)}</span>`; }
+const diffBadge = d => badge(d, "b-" + d.toLowerCase());
+const statusBadge = s => badge(s, "b-" + s.toLowerCase());
+
+function renderLibrary() {
+  const list = getFiltered();
+  const grid = $("wordGrid");
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty"><div class="big">📖</div>
+      <p><strong>No words found.</strong></p>
+      <p>Add a new word or adjust your search and filters.</p></div>`;
+    return;
+  }
+  grid.innerHTML = list.map((w, i) => `
+    <article class="card" data-id="${w.id}" style="animation-delay:${Math.min(i * 25, 300)}ms"
+             tabindex="0" role="button" aria-label="Open details for ${esc(w.word)}">
+      <div class="c-head">
+        <span class="c-word serif">${esc(w.word)}</span>
+        ${w.pos ? `<span class="c-pos">${esc(w.pos)}</span>` : ""}
+        ${isDue(w) ? `<span class="due-dot" title="Due for review">● due</span>` : ""}
+      </div>
+      <p class="c-def">${esc(w.definition)}</p>
+      <div class="c-meta">
+        ${diffBadge(w.difficulty)} ${statusBadge(w.status)}
+        ${w.tags.slice(0, 3).map(t => badge(t, "tag")).join("")}
+        ${w.addedBy ? badge("by " + w.addedBy, "tag") : ""}
+      </div>
+      <div class="c-actions">
+        <button class="btn btn-sm" data-action="review" title="Mark as reviewed (advances status)">✓ Reviewed</button>
+        <button class="btn btn-sm" data-action="edit" title="Edit">✎ Edit</button>
+        <button class="btn btn-sm btn-danger" data-action="delete" title="Delete">🗑 Delete</button>
+      </div>
+    </article>`).join("");
+}
+
+function renderGrammar() {
+  const q = $("gSearch").value.trim().toLowerCase();
+  const fTag = $("gFilterTag").value;
+  let list = grammarNotes.filter(g => {
+    if (fTag && !g.tags.includes(fTag)) return false;
+    if (q) {
+      const hay = [g.title, g.explanation, g.structure, g.examples, g.tags.join(" ")].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  list.sort((a, b) => b.dateAdded.localeCompare(a.dateAdded));
+  const grid = $("grammarGrid");
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty"><div class="big">📐</div>
+      <p><strong>No grammar notes found.</strong></p>
+      <p>Save the rules you meet in the book — inversion, cleft sentences, conditionals…</p></div>`;
+    return;
+  }
+  grid.innerHTML = list.map((g, i) => `
+    <article class="card g-card" data-id="${g.id}" style="animation-delay:${Math.min(i * 25, 300)}ms"
+             tabindex="0" role="button" aria-label="Open details for ${esc(g.title)}">
+      <div class="c-head"><span class="c-word serif" style="font-size:1.08rem">${esc(g.title)}</span></div>
+      <p class="c-def">${esc(g.explanation)}</p>
+      <div class="c-meta">
+        ${badge("grammar", "b-grammar")}
+        ${g.tags.slice(0, 3).map(t => badge(t, "tag")).join("")}
+        ${g.addedBy ? badge("by " + g.addedBy, "tag") : ""}
+      </div>
+      <div class="c-actions">
+        <button class="btn btn-sm" data-action="edit">✎ Edit</button>
+        <button class="btn btn-sm btn-danger" data-action="delete">🗑 Delete</button>
+      </div>
+    </article>`).join("");
+}
+
+function populateFilters() {
+  const fill = (sel, values) => {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">All</option>` +
+      values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  };
+  fill($("filterPos"),  [...new Set(words.map(w => w.pos).filter(Boolean))].sort());
+  fill($("filterBook"), [...new Set(words.map(w => w.book).filter(Boolean))].sort());
+  fill($("filterTag"),  [...new Set(words.flatMap(w => w.tags))].sort());
+  fill($("gFilterTag"), [...new Set(grammarNotes.flatMap(g => g.tags))].sort());
+  $("bookList").innerHTML = [...new Set([...words.map(w => w.book), ...grammarNotes.map(g => g.book)].filter(Boolean))]
+    .map(b => `<option value="${esc(b)}">`).join("");
+}
+
+function renderBooks() {
+  const grid = $("bookGrid");
+  const groups = new Map();
+  for (const w of words) {
+    const key = w.book || "(no book recorded)";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(w);
+  }
+  if (!groups.size) {
+    grid.innerHTML = `<div class="empty"><div class="big">📕</div><p>No books yet — add words with a source book title.</p></div>`;
+    return;
+  }
+  const statusColors = { New: "var(--st-new)", Learning: "var(--st-learning)",
+    Familiar: "var(--st-familiar)", Mastered: "var(--st-mastered)" };
+  grid.innerHTML = [...groups.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([book, ws]) => {
+      const counts = { New: 0, Learning: 0, Familiar: 0, Mastered: 0 };
+      ws.forEach(w => counts[w.status]++);
+      const gCount = grammarNotes.filter(g => g.book === (book === "(no book recorded)" ? "" : book)).length;
+      const bar = Object.entries(counts).filter(([, n]) => n > 0)
+        .map(([s, n]) => `<span style="width:${(n / ws.length * 100).toFixed(1)}%;background:${statusColors[s]}" title="${s}: ${n}"></span>`).join("");
+      const legend = Object.entries(counts).filter(([, n]) => n > 0)
+        .map(([s, n]) => `<span><i style="background:${statusColors[s]}"></i>${s} ${n}</span>`).join("");
+      return `<article class="book-card" data-book="${esc(book === "(no book recorded)" ? "" : book)}"
+                tabindex="0" role="button" aria-label="Show words from ${esc(book)}">
+        <div class="bk-title">📕 ${esc(book)}</div>
+        <div class="bk-count">${ws.length} word${ws.length !== 1 ? "s" : ""}${gCount ? ` · ${gCount} grammar note${gCount !== 1 ? "s" : ""}` : ""}</div>
+        <div class="bk-bar">${bar}</div>
+        <div class="bk-legend">${legend}</div>
+      </article>`;
+    }).join("");
+}
+
+function renderAll() {
+  renderStats();
+  populateFilters();
+  renderLibrary();
+  renderGrammar();
+  renderBooks();
+}
+
+/* ==================================================================
+   DETAIL MODALS
+   ================================================================== */
+function openDetail(id) {
+  const w = words.find(x => x.id === id);
+  if (!w) return;
+  const sec = (title, inner) => inner ? `<div class="d-section"><h4>${title}</h4>${inner}</div>` : "";
+  const chips = arr => arr.length ? `<div class="chip-row">${arr.map(x => badge(x, "tag")).join("")}</div>` : "";
+  $("detailBody").innerHTML = `
+    <div class="detail-word serif">${esc(w.word)}</div>
+    <div class="detail-sub">${esc(w.pos)}${w.ipa ? ` · <span class="detail-ipa">${esc(w.ipa)}</span>` : ""}</div>
+    <div class="chip-row">${diffBadge(w.difficulty)} ${statusBadge(w.status)} ${w.tags.map(t => badge(t, "tag")).join("")}</div>
+    ${sec("Definition", `<p>${esc(w.definition)}</p>`)}
+    ${sec("Detailed explanation", w.explanation && `<p>${esc(w.explanation)}</p>`)}
+    ${sec("Example from the book", w.exampleBook && `<blockquote>${esc(w.exampleBook)}</blockquote>`)}
+    ${sec("Learning example", w.exampleLearning && `<blockquote>${esc(w.exampleLearning)}</blockquote>`)}
+    ${sec("Grammar notes", w.grammar && `<p>${esc(w.grammar)}</p>`)}
+    ${sec("Collocations", chips(w.collocations))}
+    ${sec("Synonyms", chips(w.synonyms))}
+    ${sec("Antonyms", chips(w.antonyms))}
+    ${sec("Word forms", w.wordForms && `<p>${esc(w.wordForms)}</p>`)}
+    ${sec("Source", (w.book || w.chapterPage) && `<p>📕 ${esc(w.book || "—")}${w.chapterPage ? ` — ${esc(w.chapterPage)}` : ""}</p>`)}
+    ${sec("Personal note", w.note && `<p>${esc(w.note)}</p>`)}
+    ${sec("Info", `<p>Added ${esc(w.dateAdded)}${w.addedBy ? ` by ${esc(w.addedBy)}` : ""} · Reviewed ${w.srs.reviews}× · Next review ${esc(w.srs.due)}${isDue(w) ? " <strong>(due now)</strong>" : ""}</p>`)}
+  `;
+  $("detailFoot").innerHTML = `
+    <button class="btn" data-close>Close</button>
+    <button class="btn btn-primary" id="detailEditBtn">✎ Edit</button>`;
+  $("detailEditBtn").onclick = () => { $("detailModal").close(); openForm(id); };
+  $("detailModal").showModal();
+}
+
+function openGrammarDetail(id) {
+  const g = grammarNotes.find(x => x.id === id);
+  if (!g) return;
+  const sec = (title, inner) => inner ? `<div class="d-section"><h4>${title}</h4>${inner}</div>` : "";
+  $("detailBody").innerHTML = `
+    <div class="detail-word serif" style="font-size:1.35rem">${esc(g.title)}</div>
+    <div class="chip-row">${badge("grammar", "b-grammar")} ${g.tags.map(t => badge(t, "tag")).join("")}</div>
+    ${sec("Rule", `<p>${esc(g.explanation)}</p>`)}
+    ${sec("Structure / pattern", g.structure && `<blockquote>${esc(g.structure)}</blockquote>`)}
+    ${sec("Examples", g.examples && `<blockquote>${esc(g.examples)}</blockquote>`)}
+    ${sec("Common mistakes", g.mistakes && `<p>${esc(g.mistakes)}</p>`)}
+    ${sec("Source", (g.book || g.chapterPage) && `<p>📕 ${esc(g.book || "—")}${g.chapterPage ? ` — ${esc(g.chapterPage)}` : ""}</p>`)}
+    ${sec("Personal note", g.note && `<p>${esc(g.note)}</p>`)}
+    ${sec("Info", `<p>Added ${esc(g.dateAdded)}${g.addedBy ? ` by ${esc(g.addedBy)}` : ""}</p>`)}
+  `;
+  $("detailFoot").innerHTML = `
+    <button class="btn" data-close>Close</button>
+    <button class="btn btn-primary" id="detailEditBtn">✎ Edit</button>`;
+  $("detailEditBtn").onclick = () => { $("detailModal").close(); openGrammarForm(id); };
+  $("detailModal").showModal();
+}
+
+/* ==================================================================
+   WORD FORM (quick add + expandable "More fields")
+   ================================================================== */
+let editingId = null;
+
+function setMoreVisible(visible) {
+  $("moreFields").hidden = !visible;
+  $("moreToggle").setAttribute("aria-expanded", String(visible));
+  $("moreToggle").textContent = visible
+    ? "▴ Hide extra fields"
+    : "▾ More fields (examples, grammar, synonyms…)";
+}
+$("moreToggle").addEventListener("click", () => setMoreVisible($("moreFields").hidden));
+
+function openForm(id = null) {
+  editingId = id;
+  const w = id ? words.find(x => x.id === id) : null;
+  $("formTitle").textContent = w ? `Edit “${w.word}”` : "Add New Word";
+  $("fWord").value = w?.word || "";
+  $("fPos").value = w?.pos || "";
+  $("fIpa").value = w?.ipa || "";
+  $("fDifficulty").value = w?.difficulty || "Medium";
+  $("fDefinition").value = w?.definition || "";
+  $("fExplanation").value = w?.explanation || "";
+  $("fExampleBook").value = w?.exampleBook || "";
+  $("fExampleLearning").value = w?.exampleLearning || "";
+  $("fGrammar").value = w?.grammar || "";
+  $("fCollocations").value = (w?.collocations || []).join(", ");
+  $("fWordForms").value = w?.wordForms || "";
+  $("fSynonyms").value = (w?.synonyms || []).join(", ");
+  $("fAntonyms").value = (w?.antonyms || []).join(", ");
+  // New words: prefill the book with the last one used (default: our C1 book)
+  $("fBook").value = w ? w.book : (localStorage.getItem(LS_LASTBOOK) ?? DEFAULT_BOOK);
+  $("fChapter").value = w?.chapterPage || "";
+  $("fTags").value = (w?.tags || []).join(", ");
+  $("fStatus").value = w?.status || "New";
+  $("fNote").value = w?.note || "";
+  setMoreVisible(!!w);   // quick mode for new words, full form when editing
+  $("formModal").showModal();
+  $("fWord").focus();
+}
+
+$("wordForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const data = {
+    word: $("fWord").value.trim(),
+    pos: $("fPos").value,
+    ipa: $("fIpa").value.trim(),
+    difficulty: $("fDifficulty").value,
+    definition: $("fDefinition").value.trim(),
+    explanation: $("fExplanation").value.trim(),
+    exampleBook: $("fExampleBook").value.trim(),
+    exampleLearning: $("fExampleLearning").value.trim(),
+    grammar: $("fGrammar").value.trim(),
+    collocations: splitList($("fCollocations").value),
+    wordForms: $("fWordForms").value.trim(),
+    synonyms: splitList($("fSynonyms").value),
+    antonyms: splitList($("fAntonyms").value),
+    book: $("fBook").value.trim(),
+    chapterPage: $("fChapter").value.trim(),
+    tags: splitList($("fTags").value),
+    status: $("fStatus").value,
+    note: $("fNote").value.trim(),
+    updatedAt: nowIso()
+  };
+  if (!data.word || !data.definition) return;
+  localStorage.setItem(LS_LASTBOOK, data.book);
+
+  if (editingId) {
+    const w = words.find(x => x.id === editingId);
+    Object.assign(w, data);
+    toast(`Updated “${w.word}”`);
+  } else {
+    data.addedBy = settings.name;
+    words.unshift(normalize(data));
+    toast(`Added “${data.word}” — remember to Sync to share it`);
+  }
+  saveData();
+  renderAll();
+  $("formModal").close();
+});
+
+/* ---------- Auto-fill from the free dictionary (dictionaryapi.dev) ----------
+   Fills only EMPTY fields, so it never overwrites what you typed. */
+const POS_MAP = { noun: "noun", verb: "verb", adjective: "adjective", adverb: "adverb",
+  preposition: "preposition", conjunction: "conjunction", pronoun: "pronoun",
+  interjection: "interjection", determiner: "determiner" };
+
+$("lookupBtn").addEventListener("click", async () => {
+  const word = $("fWord").value.trim();
+  if (!word) { toast("Type a word first"); $("fWord").focus(); return; }
+  const btn = $("lookupBtn");
+  btn.disabled = true; btn.textContent = "⏳ Looking up…";
+  try {
+    const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word));
+    if (!res.ok) throw new Error(res.status === 404
+      ? "Not found in the dictionary (phrases often aren't) — fill it manually."
+      : "Dictionary error " + res.status);
+    const entry = (await res.json())[0];
+
+    // IPA: top-level phonetic, or the first phonetics item that has text
+    const ipa = entry.phonetic || (entry.phonetics || []).find(p => p.text)?.text || "";
+    if (ipa && !$("fIpa").value) $("fIpa").value = ipa;
+
+    const meanings = entry.meanings || [];
+    if (meanings.length) {
+      const m = meanings[0];
+      if (!$("fPos").value && POS_MAP[m.partOfSpeech]) $("fPos").value = POS_MAP[m.partOfSpeech];
+      const defs = m.definitions || [];
+      if (defs.length && !$("fDefinition").value) $("fDefinition").value = defs[0].definition;
+      // A second definition (or second meaning) makes a good starting explanation
+      const extra = defs[1]?.definition || meanings[1]?.definitions?.[0]?.definition;
+      if (extra && !$("fExplanation").value)
+        $("fExplanation").value = "Also: " + extra;
+      const example = defs.find(d => d.example)?.example;
+      if (example && !$("fExampleLearning").value) $("fExampleLearning").value = example;
+      const syns = [...new Set(meanings.flatMap(x => [...(x.synonyms || []), ...(x.definitions || []).flatMap(d => d.synonyms || [])]))];
+      const ants = [...new Set(meanings.flatMap(x => [...(x.antonyms || []), ...(x.definitions || []).flatMap(d => d.antonyms || [])]))];
+      if (syns.length && !$("fSynonyms").value) $("fSynonyms").value = syns.slice(0, 6).join(", ");
+      if (ants.length && !$("fAntonyms").value) $("fAntonyms").value = ants.slice(0, 6).join(", ");
+    }
+    toast("Auto-filled ✓ — check and adjust, then save");
+  } catch (err) {
+    toast(navigator.onLine === false ? "You're offline — auto-fill needs internet." : err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "🔎 Auto-fill";
+  }
+});
+
+/* ==================================================================
+   GRAMMAR FORM
+   ================================================================== */
+let editingGrammarId = null;
+
+function openGrammarForm(id = null) {
+  editingGrammarId = id;
+  const g = id ? grammarNotes.find(x => x.id === id) : null;
+  $("grammarTitle").textContent = g ? `Edit “${g.title}”` : "Add Grammar Note";
+  $("gTitle").value = g?.title || "";
+  $("gExplanation").value = g?.explanation || "";
+  $("gStructure").value = g?.structure || "";
+  $("gExamples").value = g?.examples || "";
+  $("gMistakes").value = g?.mistakes || "";
+  $("gBook").value = g ? g.book : (localStorage.getItem(LS_LASTBOOK) ?? DEFAULT_BOOK);
+  $("gChapter").value = g?.chapterPage || "";
+  $("gTags").value = (g?.tags || []).join(", ");
+  $("gNote").value = g?.note || "";
+  $("grammarModal").showModal();
+  $("gTitle").focus();
+}
+
+$("grammarForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const data = {
+    title: $("gTitle").value.trim(),
+    explanation: $("gExplanation").value.trim(),
+    structure: $("gStructure").value.trim(),
+    examples: $("gExamples").value.trim(),
+    mistakes: $("gMistakes").value.trim(),
+    book: $("gBook").value.trim(),
+    chapterPage: $("gChapter").value.trim(),
+    tags: splitList($("gTags").value),
+    note: $("gNote").value.trim(),
+    updatedAt: nowIso()
+  };
+  if (!data.title || !data.explanation) return;
+  if (data.book) localStorage.setItem(LS_LASTBOOK, data.book);
+
+  if (editingGrammarId) {
+    const g = grammarNotes.find(x => x.id === editingGrammarId);
+    Object.assign(g, data);
+    toast(`Updated “${g.title}”`);
+  } else {
+    data.addedBy = settings.name;
+    grammarNotes.unshift(normalizeGrammar(data));
+    toast(`Added grammar note — remember to Sync`);
+  }
+  saveData();
+  renderAll();
+  $("grammarModal").close();
+});
+
+/* ==================================================================
+   CARD GRID INTERACTIONS (event delegation)
+   ================================================================== */
+$("wordGrid").addEventListener("click", e => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const id = card.dataset.id;
+  const actionBtn = e.target.closest("[data-action]");
+  if (!actionBtn) { openDetail(id); return; }
+  e.stopPropagation();
+  const w = words.find(x => x.id === id);
+  if (actionBtn.dataset.action === "edit") openForm(id);
+  else if (actionBtn.dataset.action === "delete") {
+    if (confirm(`Delete “${w.word}”? After your next Sync it will be removed for everyone.`)) {
+      words = words.filter(x => x.id !== id);
+      deleted.push({ id, kind: "word", deletedAt: nowIso() });
+      saveData(); renderAll();
+      toast(`Deleted “${w.word}”`);
+    }
+  } else if (actionBtn.dataset.action === "review") {
+    gradeWord(w, "good");
+    saveData(); renderAll();
+    toast(`“${w.word}” reviewed — next in ${w.srs.interval} day${w.srs.interval !== 1 ? "s" : ""}`);
+  }
+});
+$("grammarGrid").addEventListener("click", e => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const id = card.dataset.id;
+  const actionBtn = e.target.closest("[data-action]");
+  if (!actionBtn) { openGrammarDetail(id); return; }
+  e.stopPropagation();
+  const g = grammarNotes.find(x => x.id === id);
+  if (actionBtn.dataset.action === "edit") openGrammarForm(id);
+  else if (actionBtn.dataset.action === "delete") {
+    if (confirm(`Delete “${g.title}”? After your next Sync it will be removed for everyone.`)) {
+      grammarNotes = grammarNotes.filter(x => x.id !== id);
+      deleted.push({ id, kind: "grammar", deletedAt: nowIso() });
+      saveData(); renderAll();
+      toast("Grammar note deleted");
+    }
+  }
+});
+// Keyboard: Enter/Space on a focused card opens it
+for (const gridId of ["wordGrid", "grammarGrid"]) {
+  $(gridId).addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("card")) {
+      e.preventDefault();
+      gridId === "wordGrid" ? openDetail(e.target.dataset.id) : openGrammarDetail(e.target.dataset.id);
+    }
+  });
+}
+
+/* ==================================================================
+   REVIEW MODE (flashcards, words only)
+   ================================================================== */
+let reviewQueue = [];
+let reviewRevealed = false;
+let reviewDone = 0;
+
+function startReview(all = false) {
+  const pool = all ? [...words] : words.filter(isDue);
+  reviewQueue = pool.sort((a, b) => a.srs.due.localeCompare(b.srs.due)).map(w => w.id);
+  reviewDone = 0;
+  renderReview();
+}
+
+function renderReview() {
+  const area = $("reviewArea");
+  reviewRevealed = false;
+  if (!words.length) {
+    area.innerHTML = `<div class="empty"><div class="big">🃏</div><p>No words to review yet — add some first!</p></div>`;
+    return;
+  }
+  if (!reviewQueue.length) {
+    const dueCount = words.filter(isDue).length;
+    area.innerHTML = `<div class="empty"><div class="big">${reviewDone ? "🎉" : "☕"}</div>
+      <p><strong>${reviewDone ? `Session complete — ${reviewDone} word${reviewDone !== 1 ? "s" : ""} reviewed!` : "Nothing due right now."}</strong></p>
+      <p style="margin:12px 0">${dueCount ? `${dueCount} word(s) are due.` : "All caught up. 🎓"}</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        ${dueCount ? `<button class="btn btn-primary" id="startDueBtn">Start review (${dueCount} due)</button>` : ""}
+        <button class="btn" id="practiceAllBtn">Practice all words</button>
+      </div></div>`;
+    const sd = $("startDueBtn"); if (sd) sd.onclick = () => startReview(false);
+    $("practiceAllBtn").onclick = () => startReview(true);
+    return;
+  }
+  const w = words.find(x => x.id === reviewQueue[0]);
+  if (!w) { reviewQueue.shift(); renderReview(); return; }
+  area.innerHTML = `
+    <p class="review-progress">${reviewDone + 1} of ${reviewDone + reviewQueue.length} · press Space to reveal, 1–4 to grade</p>
+    <div class="flashcard">
+      <div class="f-word serif">${esc(w.word)}</div>
+      ${w.pos ? `<div class="f-pos">${esc(w.pos)}</div>` : ""}
+      ${w.ipa ? `<div class="f-ipa">${esc(w.ipa)}</div>` : ""}
+      <div id="fcBody">
+        <div style="margin-top:24px">
+          <button class="btn btn-primary" id="revealBtn">Show answer</button>
+        </div>
+      </div>
+    </div>`;
+  $("revealBtn").onclick = revealAnswer;
+}
+
+function revealAnswer() {
+  if (reviewRevealed) return;
+  reviewRevealed = true;
+  const w = words.find(x => x.id === reviewQueue[0]);
+  const block = (t, inner) => inner ? `<div class="f-block"><h4>${t}</h4>${inner}</div>` : "";
+  $("fcBody").innerHTML = `
+    <div class="f-answer">
+      ${block("Definition", `<p>${esc(w.definition)}</p>`)}
+      ${block("Explanation", w.explanation && `<p>${esc(w.explanation)}</p>`)}
+      ${block("Example (book)", w.exampleBook && `<blockquote>${esc(w.exampleBook)}</blockquote>`)}
+      ${block("Example (learning)", w.exampleLearning && `<blockquote>${esc(w.exampleLearning)}</blockquote>`)}
+      ${block("Grammar", w.grammar && `<p>${esc(w.grammar)}</p>`)}
+      ${block("Collocations", w.collocations.length ? `<p>${esc(w.collocations.join(" · "))}</p>` : "")}
+      ${block("Synonyms", w.synonyms.length ? `<p>${esc(w.synonyms.join(", "))}</p>` : "")}
+    </div>
+    <div class="grade-row">
+      <button class="grade-btn g-again" data-grade="again">Again<small></small></button>
+      <button class="grade-btn g-hard" data-grade="hard">Hard<small></small></button>
+      <button class="grade-btn g-good" data-grade="good">Good<small></small></button>
+      <button class="grade-btn g-easy" data-grade="easy">Easy<small></small></button>
+    </div>`;
+  const preview = { again: 0,
+    hard: w.srs.interval > 0 ? Math.ceil(w.srs.interval * 1.2) : 1,
+    good: w.srs.interval > 0 ? w.srs.interval * 2 : 1,
+    easy: w.srs.interval > 0 ? w.srs.interval * 3 : 3 };
+  document.querySelectorAll(".grade-btn").forEach(btn => {
+    const g = btn.dataset.grade;
+    const days = Math.min(preview[g], 365);
+    btn.querySelector("small").textContent = g === "again" ? "today" : `${days} day${days !== 1 ? "s" : ""}`;
+    btn.onclick = () => applyGrade(g);
+  });
+}
+
+function applyGrade(grade) {
+  const id = reviewQueue.shift();
+  const w = words.find(x => x.id === id);
+  gradeWord(w, grade);
+  if (grade === "again") reviewQueue.push(id);
+  else reviewDone++;
+  saveData();
+  renderStats();
+  renderReview();
+}
+
+document.addEventListener("keydown", e => {
+  if ($("view-review").hidden) return;
+  if (e.target.matches("input, textarea, select")) return;
+  if (document.querySelector("dialog[open]")) return;
+  if (!reviewQueue.length) return;
+  if (e.key === " ") { e.preventDefault(); revealAnswer(); }
+  if (reviewRevealed && ["1", "2", "3", "4"].includes(e.key)) {
+    applyGrade(["again", "hard", "good", "easy"][+e.key - 1]);
+  }
+});
+
+/* ==================================================================
+   TABS
+   ================================================================== */
+const views = { "tab-library": "view-library", "tab-grammar": "view-grammar",
+  "tab-review": "view-review", "tab-books": "view-books" };
+function switchTab(tabId) {
+  for (const [tid, vid] of Object.entries(views)) {
+    $(tid).setAttribute("aria-selected", String(tid === tabId));
+    $(vid).hidden = tid !== tabId;
+  }
+  if (tabId === "tab-review") { reviewQueue = []; reviewDone = 0; renderReview(); }
+  if (tabId === "tab-books") renderBooks();
+}
+Object.keys(views).forEach(tid => $(tid).addEventListener("click", () => switchTab(tid)));
+
+$("bookGrid").addEventListener("click", e => {
+  const card = e.target.closest(".book-card");
+  if (!card) return;
+  switchTab("tab-library");
+  $("filterBook").value = card.dataset.book;
+  renderLibrary();
+});
+$("bookGrid").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList.contains("book-card")) {
+    e.preventDefault(); e.target.click();
+  }
+});
+
+/* ==================================================================
+   GITHUB SYNC
+   The shared repo holds data/words.json and data/grammar.json:
+     { "entries": [...shared-shape entries...], "deleted": [tombstones] }
+   Sync = pull remote → merge into local (newer updatedAt wins,
+   personal srs/status preserved) → push merged shared shape back.
+   Deletions travel as tombstones so they propagate to everyone.
+   ================================================================== */
+const GH_API = "https://api.github.com";
+
+function ghHeaders() {
+  const h = { Accept: "application/vnd.github+json" };
+  if (settings.token) h.Authorization = "Bearer " + settings.token;
+  return h;
+}
+
+async function ghGetFile(path) {
+  const res = await fetch(`${GH_API}/repos/${settings.repo}/contents/${path}?ref=main`,
+    { headers: ghHeaders(), cache: "no-store" });
+  if (res.status === 404) return null;
+  if (res.status === 401) throw new Error("GitHub token is invalid — check Settings.");
+  if (!res.ok) throw new Error(`GitHub error ${res.status} while reading ${path}`);
+  const data = await res.json();
+  return { json: JSON.parse(b64decode(data.content)), sha: data.sha };
+}
+
+async function ghPutFile(path, obj, sha) {
+  const body = {
+    message: `sync${settings.name ? " by " + settings.name : ""}`,
+    content: b64encode(JSON.stringify(obj, null, 1)),
+    branch: "main"
+  };
+  if (sha) body.sha = sha;
+  const res = await fetch(`${GH_API}/repos/${settings.repo}/contents/${path}`,
+    { method: "PUT", headers: ghHeaders(), body: JSON.stringify(body) });
+  if (res.status === 401 || res.status === 403)
+    throw new Error("No permission to write — check your token in Settings.");
+  if (res.status === 409 || res.status === 422) return false;  // sha conflict → caller retries
+  if (!res.ok) throw new Error(`GitHub error ${res.status} while writing ${path}`);
+  return true;
+}
+
+/* Merge one dataset (words or grammar). Returns how many new entries arrived. */
+function mergeRemote(localList, remote, normalizer, isWordList) {
+  let added = 0;
+  const remoteEntries = (remote?.entries || []).map(normalizer);
+  const remoteDeleted = remote?.deleted || [];
+  const allDeletedIds = new Set([...deleted, ...remoteDeleted].map(t => t.id));
+
+  // Apply deletions from friends
+  for (let i = localList.length - 1; i >= 0; i--)
+    if (allDeletedIds.has(localList[i].id) &&
+        remoteDeleted.some(t => t.id === localList[i].id)) localList.splice(i, 1);
+
+  // Union tombstones
+  const myIds = new Set(deleted.map(t => t.id));
+  for (const t of remoteDeleted) if (!myIds.has(t.id)) deleted.push(t);
+
+  for (const r of remoteEntries) {
+    if (allDeletedIds.has(r.id)) continue;
+    const local = localList.find(x => x.id === r.id);
+    if (!local) {
+      // Friend's new entry — starts with fresh personal progress for me
+      localList.push(r);
+      added++;
+    } else if ((r.updatedAt || "") > (local.updatedAt || "")) {
+      // Friend edited it more recently: take their shared fields,
+      // but keep MY review progress
+      if (isWordList) {
+        const { status, srs } = local;
+        Object.assign(local, r, { status, srs });
+      } else {
+        Object.assign(local, r);
+      }
+    }
+  }
+  return added;
+}
+
+async function syncNow() {
+  if (!settings.token) {
+    toast("Add your GitHub token first (⚙ Settings)");
+    openSettings();
+    return;
+  }
+  const icon = $("syncIcon");
+  icon.classList.add("spin"); icon.textContent = "⟳";
+  $("syncBtn").disabled = true;
+  try {
+    let totalNew = 0, pushed = 0;
+    // Two datasets, same procedure; retry once on a sha race with a friend
+    const files = [
+      { path: "data/words.json", list: () => words, norm: normalize, word: true,
+        shared: () => words.map(toSharedWord) },
+      { path: "data/grammar.json", list: () => grammarNotes, norm: normalizeGrammar, word: false,
+        shared: () => grammarNotes.map(g => ({ ...g })) }
+    ];
+    for (const f of files) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const remote = await ghGetFile(f.path);
+        totalNew += mergeRemote(f.list(), remote?.json, f.norm, f.word);
+        const kindDeleted = deleted.filter(t => (t.kind === "word") === f.word);
+        const payload = { entries: f.shared(), deleted: kindDeleted };
+        // Push only if the merged result differs from what's on GitHub
+        if (remote && JSON.stringify(remote.json) === JSON.stringify(payload)) break;
+        const ok = await ghPutFile(f.path, payload, remote?.sha);
+        if (ok) { pushed++; break; }
+        // sha conflict: someone pushed between our GET and PUT → loop pulls again
+      }
+    }
+    settings.lastSync = nowIso();
+    saveSettings();
+    saveData();
+    renderAll();
+    toast(`Synced ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`);
+  } catch (err) {
+    console.error(err);
+    toast(navigator.onLine === false ? "You're offline — sync needs internet." : "Sync failed: " + err.message);
+  } finally {
+    icon.classList.remove("spin"); icon.textContent = "⇅";
+    $("syncBtn").disabled = false;
+  }
+}
+$("syncBtn").addEventListener("click", syncNow);
+
+/* ==================================================================
+   SETTINGS MODAL
+   ================================================================== */
+function openSettings() {
+  $("sName").value = settings.name;
+  $("sRepo").value = settings.repo;
+  $("sToken").value = settings.token;
+  $("lastSyncInfo").textContent = settings.lastSync
+    ? "Last successful sync: " + new Date(settings.lastSync).toLocaleString()
+    : "Never synced yet.";
+  $("settingsModal").showModal();
+}
+$("settingsBtn").addEventListener("click", openSettings);
+$("settingsForm").addEventListener("submit", e => {
+  e.preventDefault();
+  settings.name = $("sName").value.trim();
+  settings.repo = $("sRepo").value.trim() || DEFAULT_REPO;
+  settings.token = $("sToken").value.trim();
+  saveSettings();
+  $("settingsModal").close();
+  toast("Settings saved");
+});
+
+/* ==================================================================
+   EXPORT / IMPORT (extra local backup besides the GitHub repo)
+   ================================================================== */
+$("menuBtn").addEventListener("click", () => $("backupModal").showModal());
+
+function download(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+$("exportJsonBtn").addEventListener("click", () => {
+  const backup = { app: "reading-vocabulary-notebook", exportedAt: nowIso(),
+    words, grammar: grammarNotes, deleted };
+  download(`vocab-backup-${todayStr()}.json`, JSON.stringify(backup, null, 2), "application/json");
+  toast("JSON backup downloaded");
+});
+
+$("exportCsvBtn").addEventListener("click", () => {
+  const cols = ["word","pos","ipa","definition","explanation","exampleBook","exampleLearning",
+    "grammar","collocations","synonyms","antonyms","wordForms","book","chapterPage",
+    "dateAdded","addedBy","note","tags","difficulty","status","nextReview"];
+  const cell = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const rows = [cols.join(",")];
+  for (const w of words) {
+    rows.push(cols.map(c => {
+      if (c === "nextReview") return cell(w.srs.due);
+      const v = w[c];
+      return cell(Array.isArray(v) ? v.join("; ") : v);
+    }).join(","));
+  }
+  // BOM so Excel opens UTF-8 (IPA symbols) correctly
+  download(`vocabulary-${todayStr()}.csv`, "﻿" + rows.join("\r\n"), "text/csv;charset=utf-8");
+  toast("CSV export downloaded");
+});
+
+let pendingImport = null;
+$("importBtn").addEventListener("click", () => $("importFile").click());
+
+$("importFile").addEventListener("change", e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      // Accept both the full backup object and a plain word array (old format)
+      const w = Array.isArray(data) ? data : (data.words || []);
+      const g = Array.isArray(data) ? [] : (data.grammar || []);
+      const cleanW = w.filter(x => x && typeof x === "object" && x.word).map(normalize);
+      const cleanG = g.filter(x => x && typeof x === "object" && x.title).map(normalizeGrammar);
+      if (!cleanW.length && !cleanG.length) throw new Error("No valid entries found in this file.");
+      pendingImport = { words: cleanW, grammar: cleanG };
+      $("importBody").innerHTML = `
+        <p>The file contains <strong>${cleanW.length}</strong> words and <strong>${cleanG.length}</strong> grammar notes.
+           You currently have <strong>${words.length}</strong> words and <strong>${grammarNotes.length}</strong> grammar notes.</p>
+        <p style="margin-top:10px"><strong>Merge</strong> keeps your current data and adds entries that aren't already saved.<br>
+           <strong>Replace All</strong> deletes your current data and loads the backup instead — this cannot be undone.</p>`;
+      $("backupModal").close();
+      $("importModal").showModal();
+    } catch (err) {
+      alert("Import failed: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+$("importReplaceBtn").addEventListener("click", () => {
+  if (!confirm(`Really replace all ${words.length} words and ${grammarNotes.length} grammar notes with the backup? This cannot be undone.`)) return;
+  words = pendingImport.words;
+  grammarNotes = pendingImport.grammar;
+  finishImport("Replaced — backup loaded");
+});
+
+$("importMergeBtn").addEventListener("click", () => {
+  let added = 0;
+  const wIds = new Set(words.map(w => w.id));
+  const wKeys = new Set(words.map(w => (w.word + "|" + w.book).toLowerCase()));
+  for (const w of pendingImport.words) {
+    if (wIds.has(w.id) || wKeys.has((w.word + "|" + w.book).toLowerCase())) continue;
+    words.push(w); added++;
+  }
+  const gIds = new Set(grammarNotes.map(g => g.id));
+  const gKeys = new Set(grammarNotes.map(g => g.title.toLowerCase()));
+  for (const g of pendingImport.grammar) {
+    if (gIds.has(g.id) || gKeys.has(g.title.toLowerCase())) continue;
+    grammarNotes.push(g); added++;
+  }
+  finishImport(`Merged — ${added} new entr${added !== 1 ? "ies" : "y"} added`);
+});
+
+function finishImport(msg) {
+  pendingImport = null;
+  saveData();
+  renderAll();
+  $("importModal").close();
+  toast(msg);
+}
+
+/* ==================================================================
+   THEME TOGGLE
+   ================================================================== */
+$("themeToggle").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem(LS_THEME, next);
+});
+const savedTheme = localStorage.getItem(LS_THEME);
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+
+/* ==================================================================
+   GLOBAL WIRING & BOOT
+   ================================================================== */
+$("addWordBtn").addEventListener("click", () => openForm());
+$("addGrammarBtn").addEventListener("click", () => openGrammarForm());
+$("addGrammarBtn2").addEventListener("click", () => openGrammarForm());
+
+document.querySelectorAll("dialog").forEach(dlg => {
+  dlg.addEventListener("click", e => {
+    if (e.target.closest("[data-close]")) dlg.close();
+    if (e.target === dlg) {
+      const r = dlg.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+    }
+  });
+});
+
+["searchInput", "filterPos", "filterDifficulty", "filterStatus", "filterBook", "filterTag", "sortSelect"]
+  .forEach(id => $(id).addEventListener("input", renderLibrary));
+["gSearch", "gFilterTag"].forEach(id => $(id).addEventListener("input", renderGrammar));
+
+loadData();
+renderAll();
+// Friendly nudge: first-time users see where Sync lives
+if (!settings.lastSync && !settings.token)
+  setTimeout(() => toast("Tip: press ⚙ to set your name & GitHub token, then Sync to join the group"), 1200);
+</script>
+</body>
+</html>
