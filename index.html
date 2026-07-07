@@ -1163,6 +1163,7 @@ function openForm(id = null) {
   $("fStatus").value = w?.status || "New";
   $("fNote").value = w?.note || "";
   setMoreVisible(!!w);   // quick mode for new words, full form when editing
+  lastAutoFill = { word: "", values: {} };   // fresh form = fresh auto-fill memory
   $("formModal").showModal();
   $("fWord").focus();
 }
@@ -1233,15 +1234,49 @@ const datamuse = async q => {
   return r.json();
 };
 
+/* Coxhead's Academic Word List (570 headwords) — used to auto-suggest the
+   "academic" tag. Embedded so it works offline and never changes under us. */
+const AWL = new Set("abandon,abstract,academy,access,accommodate,accompany,accumulate,accurate,achieve,acknowledge,acquire,adapt,adequate,adjacent,adjust,administrate,adult,advocate,affect,aggregate,aid,albeit,allocate,alter,alternative,ambiguous,amend,analogy,analyse,annual,anticipate,apparent,append,appreciate,approach,appropriate,approximate,arbitrary,area,aspect,assemble,assess,assign,assist,assume,assure,attach,attain,attitude,attribute,author,authority,automate,available,aware,behalf,benefit,bias,bond,brief,bulk,capable,capacity,category,cease,challenge,channel,chapter,chart,chemical,circumstance,cite,civil,clarify,classic,clause,code,coherent,coincide,collapse,colleague,commence,comment,commission,commit,commodity,communicate,community,compatible,compensate,compile,complement,complex,component,compound,comprehensive,comprise,compute,conceive,concentrate,concept,conclude,concurrent,conduct,confer,confine,confirm,conflict,conform,consent,consequent,considerable,consist,constant,constitute,constrain,construct,consult,consume,contact,contemporary,context,contract,contradict,contrary,contrast,contribute,controversy,convene,converse,convert,convince,cooperate,coordinate,core,corporate,correspond,couple,create,credit,criteria,crucial,culture,currency,cycle,data,debate,decade,decline,deduce,define,definite,demonstrate,denote,deny,depress,derive,design,despite,detect,deviate,device,devote,differentiate,dimension,diminish,discrete,discriminate,displace,display,dispose,distinct,distort,distribute,diverse,document,domain,domestic,dominate,draft,drama,duration,dynamic,economy,edit,element,eliminate,emerge,emphasis,empirical,enable,encounter,energy,enforce,enhance,enormous,ensure,entity,environment,equate,equip,equivalent,erode,error,establish,estate,estimate,ethic,ethnic,evaluate,eventual,evident,evolve,exceed,exclude,exhibit,expand,expertise,explicit,exploit,export,expose,external,extract,facilitate,factor,feature,federal,fee,file,final,finance,finite,flexible,fluctuate,focus,format,formula,forthcoming,found,foundation,framework,function,fund,fundamental,furthermore,gender,generate,generation,globe,goal,grade,grant,guarantee,guideline,hence,hierarchy,highlight,hypothesis,identical,identify,ideology,ignorant,illustrate,image,immigrate,impact,implement,implicate,implicit,imply,impose,incentive,incidence,incline,income,incorporate,index,indicate,individual,induce,inevitable,infer,infrastructure,inherent,inhibit,initial,initiate,injure,innovate,input,insert,insight,inspect,instance,institute,instruct,integral,integrate,integrity,intelligent,intense,interact,intermediate,internal,interpret,interval,intervene,intrinsic,invest,investigate,invoke,involve,isolate,issue,item,job,journal,justify,label,labour,layer,lecture,legal,legislate,levy,liberal,licence,likewise,link,locate,logic,maintain,major,manipulate,manual,margin,mature,maximise,mechanism,media,mediate,medical,medium,mental,method,migrate,military,minimal,minimise,minimum,ministry,minor,mode,modify,monitor,motive,mutual,negate,network,neutral,nevertheless,nonetheless,norm,normal,notion,notwithstanding,nuclear,objective,obtain,obvious,occupy,occur,odd,offset,ongoing,option,orient,outcome,output,overall,overlap,overseas,panel,paradigm,paragraph,parallel,parameter,participate,partner,passive,perceive,percent,period,persist,perspective,phase,phenomenon,philosophy,physical,plus,policy,portion,pose,positive,potential,practitioner,precede,precise,predict,predominant,preliminary,presume,previous,primary,prime,principal,principle,prior,priority,proceed,process,professional,prohibit,project,promote,proportion,prospect,protocol,psychology,publication,publish,purchase,pursue,qualitative,quote,radical,random,range,ratio,rational,react,recover,refine,regime,region,register,regulate,reinforce,reject,relax,release,relevant,reluctance,rely,remove,require,research,reside,resolve,resource,respond,restore,restrain,restrict,retain,reveal,revenue,reverse,revise,revolution,rigid,role,route,scenario,schedule,scheme,scope,section,sector,secure,seek,select,sequence,series,sex,shift,significant,similar,simulate,site,so called,sole,somewhat,source,specific,specify,sphere,stable,statistic,status,straightforward,strategy,stress,structure,style,submit,subordinate,subsequent,subsidy,substitute,successor,sufficient,sum,summary,supplement,survey,survive,suspend,sustain,symbol,tape,target,task,team,technical,technique,technology,temporary,tense,terminate,text,theme,theory,thereby,thesis,topic,trace,tradition,transfer,transform,transit,transmit,transport,trend,trigger,ultimate,undergo,underlie,undertake,uniform,unify,unique,utilize,valid,vary,vehicle,version,via,violate,virtual,visible,vision,visual,volume,voluntary,welfare,whereas,whereby,widespread".split(","));
+
+/* The AWL lists word FAMILIES by headword (analyse), so strip common
+   suffixes to match family members (analysed, analysis → analyse). */
+function isAcademic(w) {
+  const x = w.toLowerCase().replace(/[^a-z ]/g, "");
+  if (AWL.has(x)) return true;
+  const tries = [];
+  const SUFFIX_RULES = [["ies", ["y"]], ["es", [""]], ["s", [""]], ["ed", ["", "e"]],
+    ["ing", ["", "e"]], ["ally", [""]], ["ly", [""]], ["al", ["", "e"]],
+    ["ation", ["ate", "e", ""]], ["tion", ["te", ""]], ["sion", ["de", "d"]],
+    ["ment", [""]], ["ive", ["", "e"]], ["ity", ["", "e"]],
+    ["ant", ["ance"]], ["ent", ["ence"]], ["ance", [""]], ["ence", [""]], ["er", ["", "e"]]];
+  for (const [suf, reps] of SUFFIX_RULES)
+    if (x.endsWith(suf)) for (const r of reps) tries.push(x.slice(0, -suf.length) + r);
+  return tries.some(t => AWL.has(t));
+}
+
+/* Remembers what Auto-fill wrote, so looking up a DIFFERENT word replaces
+   the previous suggestions — but never touches text the user typed. */
+let lastAutoFill = { word: "", values: {} };
+
 $("lookupBtn").addEventListener("click", async () => {
   const word = $("fWord").value.trim();
   if (!word) { toast("Type a word first"); $("fWord").focus(); return; }
   const btn = $("lookupBtn");
   btn.disabled = true; btn.textContent = "⏳ Looking up…";
+  // Looking up a different word? Clear the previous word's auto-suggestions —
+  // but only fields still holding exactly what auto-fill wrote (user edits stay).
+  if (lastAutoFill.word && lastAutoFill.word !== word.toLowerCase()) {
+    for (const [id, v] of Object.entries(lastAutoFill.values)) {
+      if ($(id).value === v) $(id).value = (id === "fDifficulty") ? "Medium" : "";
+    }
+    lastAutoFill = { word: "", values: {} };
+  }
   const filled = [];
+  const remember = (id, value) => { lastAutoFill.values[id] = value; lastAutoFill.word = word.toLowerCase(); };
   const fillIf = (id, value, label) => {
-    if (value && !$(id).value.trim()) { $(id).value = value; filled.push(label); }
+    if (value && !$(id).value.trim()) { $(id).value = value; remember(id, value); filled.push(label); }
   };
+  const setSelect = (id, value, label) => { $(id).value = value; remember(id, value); filled.push(label); };
   const enc = encodeURIComponent(word);
   // All requests fly in parallel; each may fail independently without breaking the rest
   const [dict, dmSyn, dmAnt, dmAfter, dmBefore, dmFreq] = await Promise.allSettled([
@@ -1262,7 +1297,7 @@ $("lookupBtn").addEventListener("click", async () => {
       const meanings = entry.meanings || [];
       if (meanings.length) {
         const m = meanings[0];
-        if (!$("fPos").value && POS_MAP[m.partOfSpeech]) { $("fPos").value = POS_MAP[m.partOfSpeech]; filled.push("part of speech"); }
+        if (!$("fPos").value && POS_MAP[m.partOfSpeech]) setSelect("fPos", POS_MAP[m.partOfSpeech], "part of speech");
         const defs = m.definitions || [];
         fillIf("fDefinition", defs[0]?.definition, "definition");
         // Second sense / second part of speech → starting point for the explanation
@@ -1285,7 +1320,7 @@ $("lookupBtn").addEventListener("click", async () => {
       const DM_POS = { n: "noun", v: /\s/.test(word) ? "phrasal verb" : "verb",
         adj: "adjective", adv: "adverb" };
       const tag = (dmFreq.value[0].tags || []).find(t => DM_POS[t]);
-      if (tag) { $("fPos").value = DM_POS[tag]; filled.push("part of speech"); }
+      if (tag) setSelect("fPos", DM_POS[tag], "part of speech");
     }
     // Synonyms & antonyms: dictionary first, topped up from Datamuse
     const syns = [...new Set([...dictSyns, ...(dmSyn.status === "fulfilled" ? dmSyn.value.map(x => x.word) : [])])];
@@ -1300,11 +1335,18 @@ $("lookupBtn").addEventListener("click", async () => {
     fillIf("fCollocations", collocations.join(", "), "collocations");
     // Difficulty from word frequency (only for brand-new words, never on edit):
     // very common → Easy, rare → Hard
-    if (!editingId && dmFreq.status === "fulfilled" &&
-        dmFreq.value[0]?.word?.toLowerCase() === word.toLowerCase()) {
-      const f = parseFloat((dmFreq.value[0].tags || []).find(t => t.startsWith("f:"))?.slice(2) || "0");
-      if (f > 0) { $("fDifficulty").value = f >= 25 ? "Easy" : f >= 3 ? "Medium" : "Hard"; filled.push("difficulty"); }
-    }
+    let freqPerMillion = 0;
+    if (dmFreq.status === "fulfilled" && dmFreq.value[0]?.word?.toLowerCase() === word.toLowerCase())
+      freqPerMillion = parseFloat((dmFreq.value[0].tags || []).find(t => t.startsWith("f:"))?.slice(2) || "0");
+    if (!editingId && freqPerMillion > 0)
+      setSelect("fDifficulty", freqPerMillion >= 25 ? "Easy" : freqPerMillion >= 3 ? "Medium" : "Hard", "difficulty");
+    // Tag suggestions: phrasal verb (from POS), academic (Academic Word List),
+    // advanced (rare in the corpus)
+    const tagSuggestions = [];
+    if ($("fPos").value === "phrasal verb") tagSuggestions.push("phrasal verb");
+    if (isAcademic(word)) tagSuggestions.push("academic");
+    if (freqPerMillion > 0 && freqPerMillion < 3) tagSuggestions.push("advanced");
+    fillIf("fTags", tagSuggestions.join(", "), "tags");
     if (!filled.length) {
       toast(dict.status === "rejected"
         ? "Not found — phrases often aren't in dictionaries; fill it manually."
