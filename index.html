@@ -559,9 +559,10 @@ blockquote {
           <input id="sRepo" placeholder="username/vocab-notebook"></div>
         <div class="full"><label for="sToken">GitHub token</label>
           <input id="sToken" type="password" placeholder="github_pat_…" autocomplete="off">
-          <p class="hint">Needed only for Sync. Create one at
+          <p class="hint">Needed for Sync (the data repo is private — group members only).
+            First accept the collaborator invitation, then create a token at
             <strong>github.com → Settings → Developer settings → Fine-grained tokens</strong>:
-            choose “Only select repositories” → this repo → Permissions → Contents: <strong>Read and write</strong>.
+            choose “Only select repositories” → <strong>vocab-notebook-data</strong> → Permissions → Contents: <strong>Read and write</strong>.
             The token is saved only in this browser.</p></div>
         <div class="full"><p class="hint" id="lastSyncInfo"></p></div>
       </div>
@@ -621,7 +622,7 @@ const LS_THEME    = "rvn.theme";
 const LS_INIT     = "rvn.initialized";
 const LS_LASTBOOK = "rvn.lastBook";  // prefill the book field with the last one used
 
-const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook";
+const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook-data";  // private repo — group members only
 const DEFAULT_BOOK = "Ready for C1 Advanced";
 
 /* ---------- small utilities ---------- */
@@ -662,6 +663,8 @@ function b64decode(b64) {
 /* ---------- settings ---------- */
 let settings = { name: "", repo: DEFAULT_REPO, token: "", lastSync: null };
 try { Object.assign(settings, JSON.parse(localStorage.getItem(LS_SETTINGS)) || {}); } catch {}
+// Migration: data moved from the public app repo to the private data repo
+if (settings.repo === "mohammadvazirpanah/vocab-notebook") settings.repo = DEFAULT_REPO;
 function saveSettings() { localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }
 
 /* ==================================================================
