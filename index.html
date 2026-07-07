@@ -1251,7 +1251,7 @@ $("lookupBtn").addEventListener("click", async () => {
     datamuse("rel_ant=" + enc + "&max=6"),
     datamuse("rel_bga=" + enc + "&max=30"),   // words that frequently FOLLOW it
     datamuse("rel_bgb=" + enc + "&max=30"),   // words that frequently PRECEDE it
-    datamuse("sp=" + enc + "&md=f&max=1")     // corpus frequency
+    datamuse("sp=" + enc + "&md=fp&max=1")    // corpus frequency + part-of-speech tags
   ]);
   try {
     let dictSyns = [], dictAnts = [];
@@ -1276,6 +1276,16 @@ $("lookupBtn").addEventListener("click", async () => {
         dictSyns = meanings.flatMap(x => [...(x.synonyms || []), ...(x.definitions || []).flatMap(d => d.synonyms || [])]);
         dictAnts = meanings.flatMap(x => [...(x.antonyms || []), ...(x.definitions || []).flatMap(d => d.antonyms || [])]);
       }
+    }
+    // Part of speech fallback: when the dictionary had no entry (common for
+    // phrases and rare words), Datamuse's corpus tags still know it.
+    // A multi-word entry tagged as a verb is almost always a phrasal verb.
+    if (!$("fPos").value && dmFreq.status === "fulfilled" &&
+        dmFreq.value[0]?.word?.toLowerCase() === word.toLowerCase()) {
+      const DM_POS = { n: "noun", v: /\s/.test(word) ? "phrasal verb" : "verb",
+        adj: "adjective", adv: "adverb" };
+      const tag = (dmFreq.value[0].tags || []).find(t => DM_POS[t]);
+      if (tag) { $("fPos").value = DM_POS[tag]; filled.push("part of speech"); }
     }
     // Synonyms & antonyms: dictionary first, topped up from Datamuse
     const syns = [...new Set([...dictSyns, ...(dmSyn.status === "fulfilled" ? dmSyn.value.map(x => x.word) : [])])];
