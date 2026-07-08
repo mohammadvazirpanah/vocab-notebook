@@ -213,6 +213,16 @@ header.topbar {
 .b-mastered { background: var(--st-mastered-bg); color: var(--st-mastered); }
 .b-grammar  { background: var(--grammar-bg); color: var(--grammar); }
 .due-dot { color: var(--hard); font-size: .74rem; font-weight: 700; }
+/* Clickable tag-suggestion chips in the add/edit forms */
+.chip-btn { cursor: pointer; border: 1px dashed var(--border); transition: border-color .15s, color .15s; }
+.chip-btn:hover { border-color: var(--accent); color: var(--accent); }
+.warn { color: var(--medium) !important; font-weight: 600; }
+/* Group tab member cards */
+.card.static { cursor: default; }
+.card.static:hover { transform: none; box-shadow: var(--shadow); border-color: var(--border); }
+.member-row { display: flex; align-items: center; gap: 12px; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft);
+  color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 1.05rem; flex-shrink: 0; }
 
 .empty {
   text-align: center; color: var(--muted); padding: 60px 20px;
@@ -345,7 +355,7 @@ blockquote {
     <div class="topbar-actions">
       <button class="btn btn-primary" id="addWordBtn">＋ Word</button>
       <button class="btn" id="addGrammarBtn">＋ Grammar</button>
-      <button class="btn" id="syncBtn" title="Pull friends' words from GitHub and push yours"><span id="syncIcon">⇅</span> Sync</button>
+      <button class="btn" id="syncBtn" title="Pull friends' words from GitHub and push yours"><span id="syncIcon">⇅</span> Sync <small id="syncAgo" style="font-weight:500;color:var(--muted)"></small></button>
       <button class="icon-btn" id="settingsBtn" title="Settings (name, GitHub token)" aria-label="Settings">⚙</button>
       <button class="icon-btn" id="menuBtn" title="Backup: export / import" aria-label="Backup menu">⭳</button>
       <input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" aria-label="Import JSON backup file">
@@ -378,6 +388,7 @@ blockquote {
     <button class="tab" role="tab" id="tab-grammar" aria-selected="false" aria-controls="view-grammar">Grammar</button>
     <button class="tab" role="tab" id="tab-review" aria-selected="false" aria-controls="view-review">Review</button>
     <button class="tab" role="tab" id="tab-books" aria-selected="false" aria-controls="view-books">Books</button>
+    <button class="tab" role="tab" id="tab-group" aria-selected="false" aria-controls="view-group">Group</button>
   </nav>
 
   <!-- ================= LIBRARY (WORDS) VIEW ================= -->
@@ -438,6 +449,11 @@ blockquote {
   <section id="view-books" role="tabpanel" aria-labelledby="tab-books" hidden>
     <div class="grid" id="bookGrid"></div>
   </section>
+
+  <!-- ================= GROUP VIEW (per-member progress) ================= -->
+  <section id="view-group" role="tabpanel" aria-labelledby="tab-group" hidden>
+    <div class="grid" id="groupArea"></div>
+  </section>
 </main>
 
 <!-- ================= ADD / EDIT WORD MODAL ================= -->
@@ -456,7 +472,8 @@ blockquote {
             <button type="button" class="btn" id="lookupBtn" title="Auto-fill IPA, definition, synonyms from a free dictionary">🔎 Auto-fill</button>
           </div>
           <p class="hint">Auto-fill uses two free dictionaries (needs internet) and fills definition, IPA,
-            part of speech, example, synonyms, antonyms, collocations, and difficulty — only fields you left empty.</p>
+            part of speech, example, synonyms, antonyms, collocations, tags, and difficulty — only fields you left empty.</p>
+          <p class="hint warn" id="dupWarn" hidden></p>
         </div>
         <div class="full"><label for="fDefinition">Simple English definition *</label>
           <textarea id="fDefinition" required rows="2" style="min-height:52px"
@@ -490,7 +507,8 @@ blockquote {
             <div><label for="fSynonyms">Synonyms</label><input id="fSynonyms" placeholder="comma, separated"></div>
             <div><label for="fAntonyms">Antonyms</label><input id="fAntonyms" placeholder="comma, separated"></div>
             <div><label for="fChapter">Chapter / page</label><input id="fChapter" placeholder="Unit 4, p. 52"></div>
-            <div><label for="fTags">Tags</label><input id="fTags" placeholder="academic, phrasal verb"></div>
+            <div class="full"><label for="fTags">Tags</label><input id="fTags" placeholder="academic, phrasal verb">
+              <div class="chip-row" id="fTagChips" style="margin-top:6px" aria-label="Tag suggestions"></div></div>
             <div><label for="fStatus">Review status</label>
               <select id="fStatus"><option selected>New</option><option>Learning</option><option>Familiar</option><option>Mastered</option></select></div>
             <div><label for="fNote">Personal note</label><input id="fNote"></div>
@@ -526,8 +544,9 @@ blockquote {
           <textarea id="gMistakes" placeholder="e.g. ✗ Never I have seen…  ✓ Never have I seen…"></textarea></div>
         <div><label for="gBook">Source book</label><input id="gBook" list="bookList"></div>
         <div><label for="gChapter">Unit / page</label><input id="gChapter" placeholder="Unit 2, p. 24"></div>
-        <div><label for="gTags">Tags</label><input id="gTags" placeholder="C1, conditionals, formal"></div>
-        <div><label for="gNote">Personal note</label><input id="gNote"></div>
+        <div class="full"><label for="gTags">Tags</label><input id="gTags" placeholder="C1, conditionals, formal">
+          <div class="chip-row" id="gTagChips" style="margin-top:6px" aria-label="Tag suggestions"></div></div>
+        <div class="full"><label for="gNote">Personal note</label><input id="gNote"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -628,9 +647,17 @@ const LS_SETTINGS = "rvn.settings";  // { name, repo, token, lastSync }
 const LS_THEME    = "rvn.theme";
 const LS_INIT     = "rvn.initialized";
 const LS_LASTBOOK = "rvn.lastBook";  // prefill the book field with the last one used
+const LS_META     = "rvn.meta";      // cached group stats (who synced when, totals)
 
 const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook-data";  // private repo — group members only
 const DEFAULT_BOOK = "Ready for C1 Advanced";
+
+/* Topic tags from the 12 units of Ready for C1 Advanced (4th ed) —
+   shown as one-tap suggestion chips together with every tag the group uses */
+const BOOK_TOPICS = ["challenge & achievement", "change & time", "information & research",
+  "work & body idioms", "relationships", "mind & intelligence", "health & risk",
+  "money & modern life", "travel & adventure", "home & places", "culture & sight",
+  "environment & attitude"];
 
 /* ---------- small utilities ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g,
@@ -646,12 +673,20 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID()
   : Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
 const splitList = s => String(s || "").split(",").map(x => x.trim()).filter(Boolean);
 const $ = id => document.getElementById(id);
-const toast = msg => {
+const toast = (msg, ms = 3200) => {
   const t = document.createElement("div");
   t.className = "toast"; t.textContent = msg;
   $("toasts").appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+  setTimeout(() => t.remove(), ms);
 };
+function timeAgo(iso) {
+  if (!iso) return "never";
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return Math.floor(s / 60) + " min ago";
+  if (s < 86400) return Math.floor(s / 3600) + " h ago";
+  return Math.floor(s / 86400) + " d ago";
+}
 
 /* UTF-8-safe base64 (GitHub contents API stores files base64-encoded) */
 function b64encode(str) {
@@ -935,7 +970,18 @@ function getFiltered() {
     }
     return true;
   });
+  // When searching, best matches come first: word starts with the query,
+  // then a word inside the entry starts with it, then any other match —
+  // so results feel right from the very first letter typed.
+  const rank = w => {
+    const x = w.word.toLowerCase();
+    if (x.startsWith(q)) return 0;
+    if (x.split(/\s+/).some(p => p.startsWith(q))) return 1;
+    if (x.includes(q)) return 2;
+    return 3;
+  };
   list.sort((a, b) => {
+    if (q) { const d = rank(a) - rank(b); if (d) return d; }
     switch (sort) {
       case "alpha":       return a.word.localeCompare(b.word);
       case "alpha-desc":  return b.word.localeCompare(a.word);
@@ -1131,9 +1177,51 @@ function openGrammarDetail(id) {
 }
 
 /* ==================================================================
+   TAG SUGGESTION CHIPS
+   Book unit topics + every tag anyone in the group has used, minus
+   the ones already typed. One tap appends the tag. A brand-new tag
+   typed by anyone becomes a chip for everyone after the next sync.
+   ================================================================== */
+function renderTagChips(inputId, chipsId) {
+  const current = new Set(splitList($(inputId).value).map(t => t.toLowerCase()));
+  const all = [...new Set([...BOOK_TOPICS,
+    ...words.flatMap(w => w.tags), ...grammarNotes.flatMap(g => g.tags)])]
+    .filter(t => !current.has(t.toLowerCase()));
+  $(chipsId).innerHTML = all.slice(0, 24).map(t =>
+    `<button type="button" class="badge tag chip-btn" data-tag="${esc(t)}">＋ ${esc(t)}</button>`).join("");
+}
+for (const [chipsId, inputId] of [["fTagChips", "fTags"], ["gTagChips", "gTags"]]) {
+  $(chipsId).addEventListener("click", e => {
+    const b = e.target.closest(".chip-btn");
+    if (!b) return;
+    const tags = splitList($(inputId).value);
+    tags.push(b.dataset.tag);
+    $(inputId).value = tags.join(", ");
+    renderTagChips(inputId, chipsId);
+  });
+  $(inputId).addEventListener("input", () => renderTagChips(inputId, chipsId));
+}
+
+/* ==================================================================
    WORD FORM (quick add + expandable "More fields")
    ================================================================== */
 let editingId = null;
+
+/* Duplicate guard: same word (case-insensitive) already in the notebook */
+function findDuplicate(word) {
+  const x = word.trim().toLowerCase();
+  return x ? words.find(w => w.word.toLowerCase() === x && w.id !== editingId) : null;
+}
+$("fWord").addEventListener("input", () => {
+  const dup = findDuplicate($("fWord").value);
+  const el = $("dupWarn");
+  if (dup) {
+    el.hidden = false;
+    el.innerHTML = `⚠ “${esc(dup.word)}” is already saved${dup.addedBy ? " by " + esc(dup.addedBy) : ""}.
+      <button type="button" class="btn btn-sm" id="openDupBtn">Open it</button>`;
+    $("openDupBtn").onclick = () => { $("formModal").close(); openDetail(dup.id); };
+  } else el.hidden = true;
+});
 
 function setMoreVisible(visible) {
   $("moreFields").hidden = !visible;
@@ -1169,6 +1257,8 @@ function openForm(id = null) {
   $("fNote").value = w?.note || "";
   setMoreVisible(!!w);   // quick mode for new words, full form when editing
   lastAutoFill = { word: "", values: {} };   // fresh form = fresh auto-fill memory
+  $("dupWarn").hidden = true;
+  renderTagChips("fTags", "fTagChips");
   $("formModal").showModal();
   $("fWord").focus();
 }
@@ -1197,6 +1287,8 @@ $("wordForm").addEventListener("submit", e => {
     updatedAt: nowIso()
   };
   if (!data.word || !data.definition) return;
+  const dup = findDuplicate(data.word);
+  if (dup && !confirm(`“${data.word}” is already in the notebook${dup.addedBy ? " (added by " + dup.addedBy + ")" : ""}. Save a duplicate anyway?`)) return;
   localStorage.setItem(LS_LASTBOOK, data.book);
 
   if (editingId) {
@@ -1386,6 +1478,7 @@ function openGrammarForm(id = null) {
   $("gChapter").value = g?.chapterPage || "";
   $("gTags").value = (g?.tags || []).join(", ");
   $("gNote").value = g?.note || "";
+  renderTagChips("gTags", "gTagChips");
   $("grammarModal").showModal();
   $("gTitle").focus();
 }
@@ -1584,7 +1677,7 @@ document.addEventListener("keydown", e => {
    TABS
    ================================================================== */
 const views = { "tab-library": "view-library", "tab-grammar": "view-grammar",
-  "tab-review": "view-review", "tab-books": "view-books" };
+  "tab-review": "view-review", "tab-books": "view-books", "tab-group": "view-group" };
 function switchTab(tabId) {
   for (const [tid, vid] of Object.entries(views)) {
     $(tid).setAttribute("aria-selected", String(tid === tabId));
@@ -1592,6 +1685,60 @@ function switchTab(tabId) {
   }
   if (tabId === "tab-review") { reviewQueue = []; reviewDone = 0; renderReview(); }
   if (tabId === "tab-books") renderBooks();
+  if (tabId === "tab-group") renderGroup();
+}
+
+/* ==================================================================
+   GROUP VIEW — per-member contribution & progress
+   Contributions (words/grammar added) are counted live from addedBy.
+   Personal progress totals + last-sync time come from data/meta.json,
+   which each member updates when they sync (totals only — nobody's
+   review schedule is ever shared).
+   ================================================================== */
+function renderGroup() {
+  const area = $("groupArea");
+  let meta = {};
+  try { meta = JSON.parse(localStorage.getItem(LS_META)) || {}; } catch {}
+  const members = meta.members || {};
+  const names = [...new Set([...Object.keys(members),
+    ...words.map(w => w.addedBy), ...grammarNotes.map(g => g.addedBy)].filter(Boolean))];
+  if (!names.length) {
+    area.innerHTML = `<div class="empty"><div class="big">👥</div>
+      <p><strong>No group activity yet.</strong></p>
+      <p>Set your name in ⚙ Settings and press ⇅ Sync — members appear here as they join in.</p></div>`;
+    return;
+  }
+  const statusColors = { New: "var(--st-new)", Learning: "var(--st-learning)",
+    Familiar: "var(--st-familiar)", Mastered: "var(--st-mastered)" };
+  const rows = names.map(name => ({
+    name,
+    wAdded: words.filter(w => w.addedBy === name).length,
+    gAdded: grammarNotes.filter(g => g.addedBy === name).length,
+    st: members[name]?.statuses || null,
+    lastSync: members[name]?.lastSync || null
+  })).sort((a, b) => (b.wAdded + b.gAdded) - (a.wAdded + a.gAdded));
+  area.innerHTML = rows.map(r => {
+    const total = r.st ? Object.values(r.st).reduce((s, n) => s + n, 0) : 0;
+    const bar = r.st && total ? `<div class="bk-bar" style="margin-top:8px">` +
+      Object.entries(r.st).filter(([, n]) => n > 0).map(([s, n]) =>
+        `<span style="width:${(n / total * 100).toFixed(1)}%;background:${statusColors[s]}" title="${s}: ${n}"></span>`).join("") +
+      `</div><div class="bk-legend">` +
+      Object.entries(r.st).filter(([, n]) => n > 0).map(([s, n]) =>
+        `<span><i style="background:${statusColors[s]}"></i>${s} ${n}</span>`).join("") + `</div>` : "";
+    return `<article class="card static">
+      <div class="member-row">
+        <div class="avatar">${esc(r.name[0].toUpperCase())}</div>
+        <div><strong>${esc(r.name)}</strong><br>
+          <span class="hint">last sync: ${timeAgo(r.lastSync)}</span></div>
+      </div>
+      <div class="c-meta">
+        ${badge(r.wAdded + " word" + (r.wAdded !== 1 ? "s" : "") + " added", "tag")}
+        ${badge(r.gAdded + " grammar", "tag")}
+        ${r.st ? badge((r.st.Mastered || 0) + " mastered", "b-mastered") : ""}
+      </div>
+      ${bar || `<p class="hint">study progress appears after they sync</p>`}
+    </article>`;
+  }).join("");
 }
 Object.keys(views).forEach(tid => $(tid).addEventListener("click", () => switchTab(tid)));
 
@@ -1736,11 +1883,32 @@ async function syncNow() {
         // sha conflict: someone pushed between our GET and PUT → loop pulls again
       }
     }
+    // Publish my totals to the shared member log (best effort — a conflict
+    // with a friend syncing at the same moment is silently skipped)
+    try {
+      const remoteMeta = await ghGetFile("data/meta.json");
+      const meta = remoteMeta?.json && typeof remoteMeta.json === "object" ? remoteMeta.json : {};
+      meta.members = meta.members || {};
+      if (settings.name) {
+        const counts = { New: 0, Learning: 0, Familiar: 0, Mastered: 0 };
+        words.forEach(w => counts[w.status]++);
+        meta.members[settings.name] = {
+          lastSync: nowIso(),
+          wordsAdded: words.filter(w => w.addedBy === settings.name).length,
+          grammarAdded: grammarNotes.filter(g => g.addedBy === settings.name).length,
+          statuses: counts
+        };
+        await ghPutFile("data/meta.json", meta, remoteMeta?.sha);
+      }
+      localStorage.setItem(LS_META, JSON.stringify(meta));
+    } catch (e) { console.warn("member log skipped:", e); }
     settings.lastSync = nowIso();
     saveSettings();
     saveData();
     renderAll();
-    toast(`Synced ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`);
+    updateSyncAgo();
+    if (!$("view-group").hidden) renderGroup();
+    toast(`Synced ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`, 6000);
   } catch (err) {
     console.error(err);
     toast(navigator.onLine === false ? "You're offline — sync needs internet." : "Sync failed: " + err.message);
@@ -1919,8 +2087,14 @@ document.querySelectorAll("dialog").forEach(dlg => {
   .forEach(id => $(id).addEventListener("input", renderLibrary));
 ["gSearch", "gFilterTag"].forEach(id => $(id).addEventListener("input", renderGrammar));
 
+function updateSyncAgo() {
+  $("syncAgo").textContent = settings.lastSync ? "· " + timeAgo(settings.lastSync) : "";
+}
+setInterval(updateSyncAgo, 60000);
+
 loadData();
 renderAll();
+updateSyncAgo();
 // Friendly nudge: first-time users see where Sync lives
 if (!settings.lastSync && !settings.token)
   setTimeout(() => toast("Tip: press ⚙ to set your name & GitHub token, then Sync to join the group"), 1200);
