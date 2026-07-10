@@ -498,8 +498,6 @@ blockquote {
               <select id="fDifficulty"><option>Easy</option><option selected>Medium</option><option>Hard</option></select></div>
             <div class="full"><label for="fExplanation">Detailed explanation</label>
               <textarea id="fExplanation" placeholder="A longer explanation of meaning, nuance, and usage"></textarea></div>
-            <div class="full"><label for="fExampleBook">Example sentence from the book</label>
-              <textarea id="fExampleBook"></textarea></div>
             <div class="full"><label for="fExampleLearning">Original example for learning</label>
               <textarea id="fExampleLearning" placeholder="Write your own fresh example sentence"></textarea></div>
             <div class="full"><label for="fGrammar">Grammar notes</label>
@@ -508,7 +506,6 @@ blockquote {
             <div><label for="fWordForms">Related word forms</label><input id="fWordForms" placeholder="noun: …, verb: …, adj: …"></div>
             <div><label for="fSynonyms">Synonyms</label><input id="fSynonyms" placeholder="comma, separated"></div>
             <div><label for="fAntonyms">Antonyms</label><input id="fAntonyms" placeholder="comma, separated"></div>
-            <div><label for="fChapter">Chapter / page</label><input id="fChapter" placeholder="Unit 4, p. 52"></div>
             <div class="full"><label for="fTags">Tags</label><input id="fTags" placeholder="academic, phrasal verb">
               <div class="chip-row" id="fTagChips" style="margin-top:6px" aria-label="Tag suggestions"></div></div>
             <div class="full"><label for="fNote">Personal note</label><input id="fNote"></div>
@@ -652,12 +649,13 @@ const LS_META     = "rvn.meta";      // cached group stats (who synced when, tot
 const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook-data";  // private repo — group members only
 const DEFAULT_BOOK = "Ready for C1 Advanced";
 
-/* Topic tags from the 12 units of Ready for C1 Advanced (4th ed) —
-   shown as one-tap suggestion chips together with every tag the group uses */
-const BOOK_TOPICS = ["challenge & achievement", "change & time", "information & research",
-  "work & body idioms", "relationships", "mind & intelligence", "health & risk",
-  "money & modern life", "travel & adventure", "home & places", "culture & sight",
-  "environment & attitude"];
+/* Unit tags from Ready for C1 Advanced (4th ed) — one chip per chapter, so
+   at the end of each chapter the group can filter to just that unit's words */
+const BOOK_TOPICS = [
+  "C1-Unit1 Aiming High", "C1-Unit2 Times Change", "C1-Unit3 Gathering Information",
+  "C1-Unit4 All in a Day's Work", "C1-Unit5 Getting On", "C1-Unit6 All in the Mind",
+  "C1-Unit7 Feeling Good", "C1-Unit8 This is the Modern World", "C1-Unit9 Going Places",
+  "C1-Unit10 Home is Where the Heart Is", "C1-Unit11 Cultural Values", "C1-Unit12 The World About Us"];
 
 /* ---------- small utilities ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g,
@@ -1244,7 +1242,6 @@ function openForm(id = null) {
   $("fDifficulty").value = w?.difficulty || "Medium";
   $("fDefinition").value = w?.definition || "";
   $("fExplanation").value = w?.explanation || "";
-  $("fExampleBook").value = w?.exampleBook || "";
   $("fExampleLearning").value = w?.exampleLearning || "";
   $("fGrammar").value = w?.grammar || "";
   $("fCollocations").value = (w?.collocations || []).join(", ");
@@ -1253,7 +1250,6 @@ function openForm(id = null) {
   $("fAntonyms").value = (w?.antonyms || []).join(", ");
   // New words: prefill the book with the last one used (default: our C1 book)
   $("fBook").value = w ? w.book : (localStorage.getItem(LS_LASTBOOK) ?? DEFAULT_BOOK);
-  $("fChapter").value = w?.chapterPage || "";
   $("fTags").value = (w?.tags || []).join(", ");
   $("fNote").value = w?.note || "";
   setMoreVisible(!!w);   // quick mode for new words, full form when editing
@@ -1273,7 +1269,6 @@ $("wordForm").addEventListener("submit", e => {
     difficulty: $("fDifficulty").value,
     definition: $("fDefinition").value.trim(),
     explanation: $("fExplanation").value.trim(),
-    exampleBook: $("fExampleBook").value.trim(),
     exampleLearning: $("fExampleLearning").value.trim(),
     grammar: $("fGrammar").value.trim(),
     collocations: splitList($("fCollocations").value),
@@ -1281,7 +1276,6 @@ $("wordForm").addEventListener("submit", e => {
     synonyms: splitList($("fSynonyms").value),
     antonyms: splitList($("fAntonyms").value),
     book: $("fBook").value.trim(),
-    chapterPage: $("fChapter").value.trim(),
     tags: splitList($("fTags").value),
     note: $("fNote").value.trim(),
     updatedAt: nowIso()
