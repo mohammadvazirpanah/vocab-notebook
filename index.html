@@ -133,6 +133,8 @@ header.topbar {
 .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .btn-done { background: var(--easy-bg); color: var(--easy); border-color: transparent; cursor: default; }
 .btn-done:hover { background: var(--easy-bg); }
+.btn-wrong { background: var(--hard-bg); color: var(--hard); border-color: transparent; }
+.quiz-option { display: flex; width: 100%; text-align: left; margin-top: 8px; white-space: normal; }
 .btn-sm { padding: 5px 10px; font-size: .8rem; }
 .icon-btn {
   width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
@@ -391,6 +393,7 @@ blockquote {
     <button class="tab" role="tab" id="tab-library" aria-selected="true" aria-controls="view-library">Words</button>
     <button class="tab" role="tab" id="tab-grammar" aria-selected="false" aria-controls="view-grammar">Grammar</button>
     <button class="tab" role="tab" id="tab-review" aria-selected="false" aria-controls="view-review">Review</button>
+    <button class="tab" role="tab" id="tab-quiz" aria-selected="false" aria-controls="view-quiz">Quiz</button>
     <button class="tab" role="tab" id="tab-books" aria-selected="false" aria-controls="view-books">Books</button>
     <button class="tab" role="tab" id="tab-group" aria-selected="false" aria-controls="view-group">Group</button>
   </nav>
@@ -452,6 +455,11 @@ blockquote {
   <!-- ================= BOOKS VIEW ================= -->
   <section id="view-books" role="tabpanel" aria-labelledby="tab-books" hidden>
     <div class="grid" id="bookGrid"></div>
+  </section>
+
+  <!-- ================= QUIZ VIEW ================= -->
+  <section id="view-quiz" role="tabpanel" aria-labelledby="tab-quiz" hidden>
+    <div class="review-wrap" id="quizArea"></div>
   </section>
 
   <!-- ================= GROUP VIEW (per-member progress) ================= -->
@@ -671,6 +679,7 @@ const LS_INIT     = "rvn.initialized";
 const LS_LASTBOOK = "rvn.lastBook";  // prefill the book field with the last one used
 const LS_META     = "rvn.meta";      // cached group stats (who synced when, totals)
 const LS_SESSIONS = "rvn.sessions";  // my completed review sessions {date, words, score}
+const LS_QUIZZES  = "rvn.quizzes";   // my completed quizzes {date, words, score, tag}
 
 const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook-data";  // private repo — group members only
 const DEFAULT_BOOK = "Ready for C1 Advanced";
@@ -808,6 +817,17 @@ function quizFromSessions() {
     avgScore: Math.round(sessions.reduce((s, x) => s + x.score, 0) / sessions.length),
     lastScore: sessions[sessions.length - 1].score,
     lastDate: sessions[sessions.length - 1].date
+  };
+}
+let quizzes = [];  // objective quiz results — the group competition numbers
+try { quizzes = JSON.parse(localStorage.getItem(LS_QUIZZES)) || []; } catch {}
+function examFromQuizzes() {
+  if (!quizzes.length) return null;
+  return {
+    quizzes: quizzes.length,
+    avgScore: Math.round(quizzes.reduce((s, x) => s + x.score, 0) / quizzes.length),
+    lastScore: quizzes[quizzes.length - 1].score,
+    lastDate: quizzes[quizzes.length - 1].date
   };
 }
 
@@ -1690,16 +1710,177 @@ document.addEventListener("keydown", e => {
 });
 
 /* ==================================================================
+   QUIZ — auto-generated, objectively scored (the competition numbers).
+   Three question types built from the group's own words:
+   - gap-fill: type the missing word in a saved example sentence
+   - "Which word means…": definition shown, 4 word options
+   - "What does X mean": word shown, 4 definition options
+   Distractors prefer the same part of speech. Wrong answers become
+   due in Review today.
+   ================================================================== */
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const escReg = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+let quizState = null;   // { questions, index, correct, wrong[], tag, answered }
+
+function buildQuiz(tag, n = 10) {
+  const pool = words.filter(w => w.definition && (!tag || w.tags.includes(tag)));
+  if (pool.length < 4) return null;
+  return shuffle([...pool]).slice(0, n).map(w => {
+    const example = [w.exampleLearning, w.exampleBook]
+      .find(ex => ex && new RegExp(escReg(w.word), "i").test(ex));
+    const types = ["mcWord", "mcDef"];
+    if (example) types.push("gap", "gap");            // prefer gap-fill when possible
+    const type = types[Math.floor(Math.random() * types.length)];
+    if (type === "gap")
+      return { type, w, prompt: example.replace(new RegExp(escReg(w.word), "ig"), "______") };
+    // Distractors: same part of speech first, then anything
+    const others = pool.filter(x => x.id !== w.id);
+    let picks = shuffle(others.filter(x => w.pos && x.pos === w.pos)).slice(0, 3);
+    if (picks.length < 3)
+      picks = picks.concat(shuffle(others.filter(x => !picks.includes(x))).slice(0, 3 - picks.length));
+    return { type, w, options: shuffle([w, ...picks]) };
+  });
+}
+
+function startQuiz(tag) {
+  const questions = buildQuiz(tag);
+  if (!questions) { toast("Need at least 4 words with definitions" + (tag ? " in that tag" : "")); return; }
+  quizState = { questions, index: 0, correct: 0, wrong: [], tag, answered: false };
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const area = $("quizArea");
+  // ---- setup screen ----
+  if (!quizState) {
+    const tags = [...new Set(words.flatMap(w => w.tags))].sort();
+    area.innerHTML = `<div class="empty"><div class="big">🎯</div>
+      <p><strong>Quiz time!</strong></p>
+      <p style="margin:8px 0 16px">10 auto-generated questions from the group's words.<br>
+        Pick a unit tag to test just one chapter, or quiz everything.</p>
+      <div style="max-width:320px;margin:0 auto;text-align:left">
+        <label for="quizTag">Quiz on</label>
+        <select id="quizTag"><option value="">All words (${words.length})</option>
+          ${tags.map(t => `<option value="${esc(t)}">${esc(t)} (${words.filter(w => w.tags.includes(t)).length})</option>`).join("")}
+        </select>
+      </div>
+      <div style="margin-top:16px"><button class="btn btn-primary" id="quizStartBtn">Start quiz</button></div></div>`;
+    $("quizStartBtn").onclick = () => startQuiz($("quizTag").value);
+    return;
+  }
+  // ---- results screen ----
+  const qs = quizState;
+  if (qs.index >= qs.questions.length) {
+    const score = Math.round(100 * qs.correct / qs.questions.length);
+    if (!qs.saved) {
+      qs.saved = true;
+      quizzes.push({ date: todayStr(), words: qs.questions.length, score, tag: qs.tag || "" });
+      if (quizzes.length > 100) quizzes = quizzes.slice(-100);
+      localStorage.setItem(LS_QUIZZES, JSON.stringify(quizzes));
+      // Missed words become due today so Review picks them up
+      qs.wrong.forEach(w => { w.srs.due = todayStr(); });
+      saveData(); renderStats();
+    }
+    area.innerHTML = `<div class="empty"><div class="big">${score >= 80 ? "🏆" : score >= 50 ? "💪" : "📖"}</div>
+      <p><strong>Quiz finished — ${qs.correct}/${qs.questions.length} correct · score ${score}%</strong></p>
+      ${qs.wrong.length ? `<div style="text-align:left;max-width:420px;margin:14px auto">
+        <p class="hint" style="margin-bottom:6px">To work on (now due in Review):</p>
+        ${qs.wrong.map(w => `<p>• <strong>${esc(w.word)}</strong> — ${esc(w.definition)}</p>`).join("")}</div>` : `<p style="margin-top:10px">Perfect — nothing to fix! 🎓</p>`}
+      <p class="hint" style="margin-top:10px">Your quiz score joins the Group leaderboard after your next ⇅ Push</p>
+      <div style="margin-top:14px;display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-primary" id="quizAgainBtn">New quiz</button>
+      </div></div>`;
+    $("quizAgainBtn").onclick = () => { quizState = null; renderQuiz(); };
+    return;
+  }
+  // ---- one question ----
+  const q = qs.questions[qs.index];
+  qs.answered = false;
+  const head = `<p class="review-progress">Question ${qs.index + 1} of ${qs.questions.length}${qs.tag ? " · " + esc(qs.tag) : ""}</p>`;
+  if (q.type === "gap") {
+    area.innerHTML = `${head}<div class="flashcard" style="text-align:left">
+      <h4 style="font-size:.75rem;text-transform:uppercase;color:var(--muted)">Type the missing word</h4>
+      <blockquote style="margin:12px 0">${esc(q.prompt)}</blockquote>
+      ${q.w.pos ? `<p class="hint">(${esc(q.w.pos)})</p>` : ""}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input id="gapInput" autocomplete="off" placeholder="Your answer…">
+        <button class="btn btn-primary" id="gapCheckBtn">Check</button>
+      </div>
+      <div id="quizFeedback" style="margin-top:12px"></div></div>`;
+    const check = () => {
+      if (qs.answered) return;
+      qs.answered = true;
+      const ok = $("gapInput").value.trim().toLowerCase() === q.w.word.toLowerCase();
+      answerQuestion(ok, q);
+    };
+    $("gapCheckBtn").onclick = check;
+    $("gapInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); check(); } });
+    $("gapInput").focus();
+  } else {
+    const askDef = q.type === "mcWord";  // definition shown → choose the word
+    area.innerHTML = `${head}<div class="flashcard" style="text-align:left">
+      <h4 style="font-size:.75rem;text-transform:uppercase;color:var(--muted)">${askDef ? "Which word means…" : "What does it mean?"}</h4>
+      <p style="font-size:1.15rem;margin:12px 0" class="${askDef ? "" : "serif"}">
+        ${askDef ? esc(q.w.definition) : `<strong>${esc(q.w.word)}</strong>${q.w.pos ? ` <em style="color:var(--muted);font-size:.9rem">(${esc(q.w.pos)})</em>` : ""}`}</p>
+      ${q.options.map((o, i) => `<button class="btn quiz-option" data-i="${i}">
+        <span style="color:var(--muted);margin-right:8px">${i + 1}</span> ${esc(askDef ? o.word : o.definition)}</button>`).join("")}
+      <div id="quizFeedback" style="margin-top:12px"></div></div>`;
+    area.querySelectorAll(".quiz-option").forEach(btn => {
+      btn.onclick = () => {
+        if (qs.answered) return;
+        qs.answered = true;
+        const chosen = q.options[+btn.dataset.i];
+        const ok = chosen.id === q.w.id;
+        // paint the buttons: right one green, wrong pick red
+        area.querySelectorAll(".quiz-option").forEach((b, i) => {
+          b.disabled = true;
+          if (q.options[i].id === q.w.id) b.classList.add("btn-done");
+          else if (b === btn) b.classList.add("btn-wrong");
+        });
+        answerQuestion(ok, q, true);
+      };
+    });
+  }
+}
+
+function answerQuestion(ok, q, painted = false) {
+  const qs = quizState;
+  if (ok) qs.correct++;
+  else if (!qs.wrong.includes(q.w)) qs.wrong.push(q.w);
+  $("quizFeedback").innerHTML = `
+    <p style="font-weight:700;color:${ok ? "var(--easy)" : "var(--hard)"}">${ok ? "✓ Correct!" : "✗ Not quite."}</p>
+    ${!ok && !painted ? `<p>The answer: <strong>${esc(q.w.word)}</strong></p>` : ""}
+    ${!ok ? `<p class="hint">${esc(q.w.definition)}</p>` : ""}
+    <button class="btn btn-primary" id="quizNextBtn" style="margin-top:10px">${qs.index + 1 >= qs.questions.length ? "See results" : "Next →"}</button>`;
+  $("quizNextBtn").onclick = () => { qs.index++; renderQuiz(); };
+  $("quizNextBtn").focus();
+}
+
+// Number keys pick an option; Enter advances after answering
+document.addEventListener("keydown", e => {
+  if ($("view-quiz").hidden || !quizState) return;
+  if (e.target.matches("input, textarea, select")) return;
+  if (document.querySelector("dialog[open]")) return;
+  if (!quizState.answered && ["1", "2", "3", "4"].includes(e.key)) {
+    document.querySelectorAll("#quizArea .quiz-option")[+e.key - 1]?.click();
+  }
+});
+
+/* ==================================================================
    TABS
    ================================================================== */
 const views = { "tab-library": "view-library", "tab-grammar": "view-grammar",
-  "tab-review": "view-review", "tab-books": "view-books", "tab-group": "view-group" };
+  "tab-review": "view-review", "tab-quiz": "view-quiz",
+  "tab-books": "view-books", "tab-group": "view-group" };
 function switchTab(tabId) {
   for (const [tid, vid] of Object.entries(views)) {
     $(tid).setAttribute("aria-selected", String(tid === tabId));
     $(vid).hidden = tid !== tabId;
   }
   if (tabId === "tab-review") { reviewQueue = []; reviewDone = 0; renderReview(); }
+  if (tabId === "tab-quiz") { quizState = null; renderQuiz(); }
   if (tabId === "tab-books") renderBooks();
   if (tabId === "tab-group") renderGroup();
 }
@@ -1734,10 +1915,12 @@ function renderGroup() {
     // My own card always shows my LOCAL scores instantly — no Push needed;
     // friends see them after my next Push
     quiz: (name === settings.name && quizFromSessions()) || members[name]?.quiz || null,
+    exam: (name === settings.name && examFromQuizzes()) || members[name]?.exam || null,
     lastSync: members[name]?.lastSync || null
   })).sort((a, b) => (b.wAdded + b.gAdded) - (a.wAdded + a.gAdded));
-  // Rank the members who have review scores, by average score
-  [...rows].filter(r => r.quiz).sort((a, b) => b.quiz.avgScore - a.quiz.avgScore)
+  // Rank by quiz average (objective) when available, else review average
+  [...rows].filter(r => r.exam || r.quiz)
+    .sort((a, b) => (b.exam ? b.exam.avgScore : b.quiz.avgScore) - (a.exam ? a.exam.avgScore : a.quiz.avgScore))
     .forEach((r, i) => { r.rank = i + 1; });
   area.innerHTML = rows.map(r => {
     const total = r.st ? Object.values(r.st).reduce((s, n) => s + n, 0) : 0;
@@ -1758,8 +1941,9 @@ function renderGroup() {
         ${badge(r.gAdded + " grammar", "tag")}
         ${r.st ? badge((r.st.Mastered || 0) + " mastered", "b-mastered") : ""}
         ${r.rank ? badge(`${r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : "🏅"} rank #${r.rank}`, "b-mastered") : ""}
+        ${r.exam ? badge(`🎯 ${r.exam.quizzes} quiz${r.exam.quizzes !== 1 ? "zes" : ""} · avg ${r.exam.avgScore}%`, "b-grammar") : ""}
         ${r.quiz ? badge(`${r.quiz.sessions} review${r.quiz.sessions !== 1 ? "s" : ""} · avg ${r.quiz.avgScore}%`, "b-familiar") : ""}
-        ${r.quiz ? badge(`last: ${r.quiz.lastScore}%`, "b-new") : ""}
+        ${r.quiz && !r.exam ? badge(`last: ${r.quiz.lastScore}%`, "b-new") : ""}
       </div>
       ${bar || `<p class="hint">study progress appears after they sync</p>`}
     </article>`;
@@ -1925,8 +2109,9 @@ async function syncNow(push = true) {
           wordsAdded: words.filter(w => w.addedBy === settings.name).length,
           grammarAdded: grammarNotes.filter(g => g.addedBy === settings.name).length,
           statuses: counts,
-          // Review-exam results: totals only, never the schedule
-          quiz: quizFromSessions()
+          // Review + quiz results: totals only, never the schedule
+          quiz: quizFromSessions(),
+          exam: examFromQuizzes()
         };
         await ghPutFile("data/meta.json", meta, remoteMeta?.sha);
       }
