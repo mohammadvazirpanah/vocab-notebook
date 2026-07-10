@@ -801,6 +801,15 @@ let grammarNotes = [];
 let deleted = [];   // tombstones: { id, kind: "word"|"grammar", deletedAt }
 let sessions = [];  // my review-session scores; totals are shared via Push
 try { sessions = JSON.parse(localStorage.getItem(LS_SESSIONS)) || []; } catch {}
+function quizFromSessions() {
+  if (!sessions.length) return null;
+  return {
+    sessions: sessions.length,
+    avgScore: Math.round(sessions.reduce((s, x) => s + x.score, 0) / sessions.length),
+    lastScore: sessions[sessions.length - 1].score,
+    lastDate: sessions[sessions.length - 1].date
+  };
+}
 
 function loadData() {
   try {
@@ -1592,41 +1601,25 @@ function renderReview() {
   const w = words.find(x => x.id === reviewQueue[0]);
   if (!w) { reviewQueue.shift(); renderReview(); return; }
   area.innerHTML = `
-    <p class="review-progress">${reviewDone + 1} of ${reviewDone + reviewQueue.length} · press Space to reveal, 1–4 to grade</p>
+    <p class="review-progress">${reviewDone + 1} of ${reviewDone + reviewQueue.length} · Space shows/hides the answer · 1–4 to grade</p>
     <div class="flashcard">
       <div class="f-word serif">${esc(w.word)}</div>
       ${w.pos ? `<div class="f-pos">${esc(w.pos)}</div>` : ""}
       ${w.ipa ? `<div class="f-ipa">${esc(w.ipa)}</div>` : ""}
-      <div id="fcBody">
-        <div style="margin-top:24px">
-          <button class="btn btn-primary" id="revealBtn">Show answer</button>
-        </div>
+      <div id="fcBody"></div>
+      <div style="margin-top:22px">
+        <button class="btn" id="revealBtn" aria-expanded="false">👁 Show answer</button>
+      </div>
+      <!-- Grades are available immediately — if you already know the word,
+           grade it without opening the answer at all -->
+      <div class="grade-row">
+        <button class="grade-btn g-again" data-grade="again">Again<small></small></button>
+        <button class="grade-btn g-hard" data-grade="hard">Hard<small></small></button>
+        <button class="grade-btn g-good" data-grade="good">Good<small></small></button>
+        <button class="grade-btn g-easy" data-grade="easy">Easy<small></small></button>
       </div>
     </div>`;
-  $("revealBtn").onclick = revealAnswer;
-}
-
-function revealAnswer() {
-  if (reviewRevealed) return;
-  reviewRevealed = true;
-  const w = words.find(x => x.id === reviewQueue[0]);
-  const block = (t, inner) => inner ? `<div class="f-block"><h4>${t}</h4>${inner}</div>` : "";
-  $("fcBody").innerHTML = `
-    <div class="f-answer">
-      ${block("Definition", `<p>${esc(w.definition)}</p>`)}
-      ${block("Explanation", w.explanation && `<p>${esc(w.explanation)}</p>`)}
-      ${block("Example (book)", w.exampleBook && `<blockquote>${esc(w.exampleBook)}</blockquote>`)}
-      ${block("Example (learning)", w.exampleLearning && `<blockquote>${esc(w.exampleLearning)}</blockquote>`)}
-      ${block("Grammar", w.grammar && `<p>${esc(w.grammar)}</p>`)}
-      ${block("Collocations", w.collocations.length ? `<p>${esc(w.collocations.join(" · "))}</p>` : "")}
-      ${block("Synonyms", w.synonyms.length ? `<p>${esc(w.synonyms.join(", "))}</p>` : "")}
-    </div>
-    <div class="grade-row">
-      <button class="grade-btn g-again" data-grade="again">Again<small></small></button>
-      <button class="grade-btn g-hard" data-grade="hard">Hard<small></small></button>
-      <button class="grade-btn g-good" data-grade="good">Good<small></small></button>
-      <button class="grade-btn g-easy" data-grade="easy">Easy<small></small></button>
-    </div>`;
+  $("revealBtn").onclick = toggleAnswer;
   const preview = { again: 0,
     hard: w.srs.interval > 0 ? Math.ceil(w.srs.interval * 1.2) : 1,
     good: w.srs.interval > 0 ? w.srs.interval * 2 : 1,
@@ -1637,6 +1630,27 @@ function revealAnswer() {
     btn.querySelector("small").textContent = g === "again" ? "today" : `${days} day${days !== 1 ? "s" : ""}`;
     btn.onclick = () => applyGrade(g);
   });
+}
+
+/* Show/hide toggle — close the answer again to keep testing yourself */
+function toggleAnswer() {
+  const w = words.find(x => x.id === reviewQueue[0]);
+  if (!w) return;
+  reviewRevealed = !reviewRevealed;
+  $("revealBtn").textContent = reviewRevealed ? "🙈 Hide answer" : "👁 Show answer";
+  $("revealBtn").setAttribute("aria-expanded", String(reviewRevealed));
+  if (!reviewRevealed) { $("fcBody").innerHTML = ""; return; }
+  const block = (t, inner) => inner ? `<div class="f-block"><h4>${t}</h4>${inner}</div>` : "";
+  $("fcBody").innerHTML = `
+    <div class="f-answer">
+      ${block("Definition", `<p>${esc(w.definition)}</p>`)}
+      ${block("Explanation", w.explanation && `<p>${esc(w.explanation)}</p>`)}
+      ${block("Example (book)", w.exampleBook && `<blockquote>${esc(w.exampleBook)}</blockquote>`)}
+      ${block("Example (learning)", w.exampleLearning && `<blockquote>${esc(w.exampleLearning)}</blockquote>`)}
+      ${block("Grammar", w.grammar && `<p>${esc(w.grammar)}</p>`)}
+      ${block("Collocations", w.collocations.length ? `<p>${esc(w.collocations.join(" · "))}</p>` : "")}
+      ${block("Synonyms", w.synonyms.length ? `<p>${esc(w.synonyms.join(", "))}</p>` : "")}
+    </div>`;
 }
 
 function applyGrade(grade) {
@@ -1669,8 +1683,8 @@ document.addEventListener("keydown", e => {
   if (e.target.matches("input, textarea, select")) return;
   if (document.querySelector("dialog[open]")) return;
   if (!reviewQueue.length) return;
-  if (e.key === " ") { e.preventDefault(); revealAnswer(); }
-  if (reviewRevealed && ["1", "2", "3", "4"].includes(e.key)) {
+  if (e.key === " ") { e.preventDefault(); toggleAnswer(); }
+  if (["1", "2", "3", "4"].includes(e.key)) {
     applyGrade(["again", "hard", "good", "easy"][+e.key - 1]);
   }
 });
@@ -1717,9 +1731,14 @@ function renderGroup() {
     wAdded: words.filter(w => w.addedBy === name).length,
     gAdded: grammarNotes.filter(g => g.addedBy === name).length,
     st: members[name]?.statuses || null,
-    quiz: members[name]?.quiz || null,
+    // My own card always shows my LOCAL scores instantly — no Push needed;
+    // friends see them after my next Push
+    quiz: (name === settings.name && quizFromSessions()) || members[name]?.quiz || null,
     lastSync: members[name]?.lastSync || null
   })).sort((a, b) => (b.wAdded + b.gAdded) - (a.wAdded + a.gAdded));
+  // Rank the members who have review scores, by average score
+  [...rows].filter(r => r.quiz).sort((a, b) => b.quiz.avgScore - a.quiz.avgScore)
+    .forEach((r, i) => { r.rank = i + 1; });
   area.innerHTML = rows.map(r => {
     const total = r.st ? Object.values(r.st).reduce((s, n) => s + n, 0) : 0;
     const bar = r.st && total ? `<div class="bk-bar" style="margin-top:8px">` +
@@ -1738,6 +1757,7 @@ function renderGroup() {
         ${badge(r.wAdded + " word" + (r.wAdded !== 1 ? "s" : "") + " added", "tag")}
         ${badge(r.gAdded + " grammar", "tag")}
         ${r.st ? badge((r.st.Mastered || 0) + " mastered", "b-mastered") : ""}
+        ${r.rank ? badge(`${r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : "🏅"} rank #${r.rank}`, "b-mastered") : ""}
         ${r.quiz ? badge(`${r.quiz.sessions} review${r.quiz.sessions !== 1 ? "s" : ""} · avg ${r.quiz.avgScore}%`, "b-familiar") : ""}
         ${r.quiz ? badge(`last: ${r.quiz.lastScore}%`, "b-new") : ""}
       </div>
@@ -1906,12 +1926,7 @@ async function syncNow(push = true) {
           grammarAdded: grammarNotes.filter(g => g.addedBy === settings.name).length,
           statuses: counts,
           // Review-exam results: totals only, never the schedule
-          quiz: sessions.length ? {
-            sessions: sessions.length,
-            avgScore: Math.round(sessions.reduce((s, x) => s + x.score, 0) / sessions.length),
-            lastScore: sessions[sessions.length - 1].score,
-            lastDate: sessions[sessions.length - 1].date
-          } : null
+          quiz: quizFromSessions()
         };
         await ghPutFile("data/meta.json", meta, remoteMeta?.sha);
       }
