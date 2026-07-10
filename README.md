@@ -1,47 +1,51 @@
 # 📚 Reading Vocabulary Notebook
 
-Our shared vocabulary & grammar notebook for reading **Ready for C1 Advanced** (and any other book).
-One page, no server, works on laptop and phone.
+A single-file, offline-friendly **vocabulary & grammar notebook** for study groups —
+built with plain HTML/CSS/JavaScript. No server, no framework, no paid services.
 
-**👉 Open the app: https://mohammadvazirpanah.github.io/vocab-notebook/**
+**App:** https://mohammadvazirpanah.github.io/vocab-notebook/
 
-This public repo contains only the app code. **The group's words and grammar notes live in a
-private repo (`vocab-notebook-data`)** — only invited members can read or write them.
+> ⚠️ **This public repository contains only the app code.** No vocabulary data is stored here.
 
-## How to join (one-time setup, ~3 minutes)
+## How it works
 
-1. **Open the link above** in Chrome/Firefox — on your phone too.
-   - On Android: Chrome menu → **Add to Home screen** → it becomes an app icon.
-2. **Accept the collaborator invitation** for the private `vocab-notebook-data` repo
-   (check your GitHub notifications/email). This is what authorizes you — no invitation, no access.
-3. **Create your GitHub token** (this is your "key" for reading and saving the group data):
-   - Go to [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)
-   - Token name: `vocab` · Expiration: 1 year
-   - Repository access: **Only select repositories** → choose `vocab-notebook-data`
-   - Permissions → **Contents → Read and write**
-   - Click **Generate token** and copy it (starts with `github_pat_…`)
-4. In the app, press **⚙ Settings**: enter your **name** and paste the **token**. Save.
-5. Press **⇅ Sync** — you'll get everyone's words, and yours will be shared.
+```
+┌─────────────────────┐         ⬇ Update / ⇅ Push          ┌──────────────────────┐
+│  Your browser        │ ◄──── GitHub Contents API ────►    │  PRIVATE data repo    │
+│  (localStorage)      │        (personal token)            │  words.json           │
+│  words + progress    │                                    │  grammar.json         │
+└─────────────────────┘                                    └──────────────────────┘
+```
 
-## Daily use
+- The app runs entirely in the browser; everything you type is stored locally first, so it works offline.
+- **⬇ Update** pulls the team's latest words/grammar and merges them in.
+- **⇅ Push** does an update first, then shares your additions, edits and review scores.
+- Personal spaced-repetition schedules never leave the browser — only score totals are shared.
+- Every push is a git commit in the data repo, so the full history is always recoverable.
 
-- **＋ Word** — quick form: word + definition is enough. Press **🔎 Auto-fill** to fetch
-  IPA, definition, and synonyms automatically. "More fields" has examples, grammar, collocations…
-- **＋ Grammar** — save grammar rules from the book: structure, examples, common mistakes.
-- **Review tab** — flashcards with spaced repetition. Your review progress is **private**;
-  syncing never changes anyone else's study schedule.
-- **⇅ Sync** — press it when you start and when you finish adding words. That's it.
+## Managing it privately with a team
 
-## Where is the data?
+1. Create a **private** repo (e.g. `vocab-notebook-data`) containing `data/words.json` and
+   `data/grammar.json` — the app creates them on first push if they don't exist.
+2. Invite each team member as a **collaborator** with the **Write** role. This is the entire
+   access control: no invitation → no access; remove a collaborator → access ends instantly.
+3. Each member creates a **fine-grained personal access token** scoped to *only* that repo
+   with **Contents: Read and write**, and enters it once in the app's ⚙ Settings
+   (the token is stored only in their browser, is never displayed again, and can only be
+   replaced — not removed — from the UI).
+4. Point the app at the data repo in ⚙ Settings (`owner/repo`).
 
-- The shared lists live in the **private** `vocab-notebook-data` repo as `data/words.json`
-  and `data/grammar.json`. Every sync is a commit, so nothing is ever lost.
-- Your personal review progress stays in your own browser.
-- Deleted your app / got a new phone? Open the link, paste your token, press Sync — everything comes back.
-- Extra safety: the ⭳ button in the app exports a full JSON/CSV backup file.
+## Features
 
-## Rules of the group 🤝
+- Quick add with **auto-fill** (free dictionary APIs: definition, IPA, part of speech, examples,
+  synonyms, collocations, difficulty, tags) and **bulk add** for whole word lists
+- Grammar notes (rule, structure, examples, common mistakes)
+- Flashcard review with spaced repetition and session **scores**
+- Group tab: per-member contributions, mastery progress and review scores
+- Search, filters, unit/topic tags, duplicate detection
+- JSON/CSV export, JSON import, light/dark theme, mobile-friendly (Add to Home screen)
 
-- All definitions and explanations in **clear English only**.
-- Anyone can add and edit words and grammar notes.
-- Sync before and after a study session to avoid surprises.
+## License / reuse
+
+Feel free to fork and adapt for your own study group: replace the default repo name in
+`index.html` (`DEFAULT_REPO`) and host via GitHub Pages.

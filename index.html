@@ -356,8 +356,10 @@ blockquote {
     </div>
     <div class="topbar-actions">
       <button class="btn btn-primary" id="addWordBtn">＋ Word</button>
+      <button class="btn" id="bulkBtn" title="Paste a whole list of words and add them all at once">⇪ Bulk</button>
       <button class="btn" id="addGrammarBtn">＋ Grammar</button>
-      <button class="btn" id="syncBtn" title="Pull friends' words from GitHub and push yours"><span id="syncIcon">⇅</span> Sync <small id="syncAgo" style="font-weight:500;color:var(--muted)"></small></button>
+      <button class="btn" id="updateBtn" title="Get the group's latest words (shares nothing of yours)">⬇ Update</button>
+      <button class="btn" id="pushBtn" title="Update first, then share your words, grammar and scores with the group"><span id="syncIcon">⇅</span> Push <small id="syncAgo" style="font-weight:500;color:var(--muted)"></small></button>
       <button class="icon-btn" id="settingsBtn" title="Settings (name, GitHub token)" aria-label="Settings">⚙</button>
       <button class="icon-btn" id="menuBtn" title="Backup: export / import" aria-label="Backup menu">⭳</button>
       <input type="file" id="importFile" accept=".json,application/json" class="visually-hidden" aria-label="Import JSON backup file">
@@ -553,6 +555,29 @@ blockquote {
   </form>
 </dialog>
 
+<!-- ================= BULK ADD MODAL ================= -->
+<dialog id="bulkModal" aria-labelledby="bulkTitle">
+  <div class="modal-head"><h2 id="bulkTitle">Bulk Add Words</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close">✕</button></div>
+  <div class="modal-body">
+    <div class="form-grid">
+      <div class="full"><label for="bulkWords">Words or phrases — one per line</label>
+        <textarea id="bulkWords" rows="8" placeholder="reluctant&#10;carry out&#10;subtle&#10;…"></textarea></div>
+      <div><label for="bulkBook">Book (for all of them)</label><input id="bulkBook" list="bookList"></div>
+      <div><label style="display:flex;align-items:center;gap:8px;margin-top:24px;cursor:pointer">
+        <input type="checkbox" id="bulkAuto" checked style="width:auto"> Auto-fill each word</label></div>
+      <div class="full"><label for="bulkTags">Tags (for all of them)</label>
+        <input id="bulkTags" placeholder="C1-Unit1 Aiming High">
+        <div class="chip-row" id="bulkTagChips" style="margin-top:6px"></div></div>
+      <p class="hint full" id="bulkStatus" aria-live="polite"></p>
+    </div>
+  </div>
+  <div class="modal-foot">
+    <button type="button" class="btn" data-close>Close</button>
+    <button type="button" class="btn btn-primary" id="bulkStartBtn">Add All</button>
+  </div>
+</dialog>
+
 <!-- ================= DETAIL MODAL (words & grammar) ================= -->
 <dialog id="detailModal" aria-label="Details">
   <div class="modal-head">
@@ -577,11 +602,11 @@ blockquote {
           <input id="sRepo" placeholder="username/vocab-notebook"></div>
         <div class="full"><label for="sToken">GitHub token</label>
           <input id="sToken" type="password" placeholder="github_pat_…" autocomplete="off">
-          <p class="hint">Needed for Sync (the data repo is private — group members only).
+          <p class="hint">Needed once, for connecting (the data repo is private — group members only).
             First accept the collaborator invitation, then create a token at
             <strong>github.com → Settings → Developer settings → Fine-grained tokens</strong>:
             choose “Only select repositories” → <strong>vocab-notebook-data</strong> → Permissions → Contents: <strong>Read and write</strong>.
-            The token is saved only in this browser.</p></div>
+            Saved only in this browser, never displayed again, and it can't be removed here — only replaced.</p></div>
         <div class="full"><p class="hint" id="lastSyncInfo"></p></div>
       </div>
     </div>
@@ -605,8 +630,8 @@ blockquote {
     </div>
     <hr style="border:none;border-top:1px solid var(--border);margin:16px 0">
     <p style="margin-bottom:10px" class="hint">Made a mess while testing? Reset wipes only THIS browser's local data
-      (words, grammar, pending deletions, review progress — settings are kept) and brings the samples back.
-      The group's data on GitHub is not touched. Sync afterwards to pull the group's words again.</p>
+      (words, grammar, pending deletions, review progress — settings are kept).
+      The group's data on GitHub is not touched. Press ⬇ Update afterwards to pull the group’s words again.</p>
     <button class="btn btn-danger" id="resetLocalBtn">🧹 Reset this device</button>
   </div>
   <div class="modal-foot"><button class="btn" data-close>Close</button></div>
@@ -645,6 +670,7 @@ const LS_THEME    = "rvn.theme";
 const LS_INIT     = "rvn.initialized";
 const LS_LASTBOOK = "rvn.lastBook";  // prefill the book field with the last one used
 const LS_META     = "rvn.meta";      // cached group stats (who synced when, totals)
+const LS_SESSIONS = "rvn.sessions";  // my completed review sessions {date, words, score}
 
 const DEFAULT_REPO = "mohammadvazirpanah/vocab-notebook-data";  // private repo — group members only
 const DEFAULT_BOOK = "Ready for C1 Advanced";
@@ -773,6 +799,8 @@ function toSharedWord(w) {
 let words = [];
 let grammarNotes = [];
 let deleted = [];   // tombstones: { id, kind: "word"|"grammar", deletedAt }
+let sessions = [];  // my review-session scores; totals are shared via Push
+try { sessions = JSON.parse(localStorage.getItem(LS_SESSIONS)) || []; } catch {}
 
 function loadData() {
   try {
@@ -783,135 +811,12 @@ function loadData() {
     const d = localStorage.getItem(LS_DELETED);
     if (d) deleted = JSON.parse(d);
   } catch (e) { console.warn("Could not parse saved data:", e); }
-  // First run only: seed samples (fixed ids so a later sync won't duplicate them)
-  if (!localStorage.getItem(LS_INIT)) {
-    if (!words.length) words = SAMPLE_WORDS.map(normalize);
-    if (!grammarNotes.length) grammarNotes = SAMPLE_GRAMMAR.map(normalizeGrammar);
-    saveData();
-    localStorage.setItem(LS_INIT, "1");
-  }
 }
 function saveData() {
   localStorage.setItem(LS_WORDS, JSON.stringify(words));
   localStorage.setItem(LS_GRAMMAR, JSON.stringify(grammarNotes));
   localStorage.setItem(LS_DELETED, JSON.stringify(deleted));
 }
-
-/* ---------- sample entries (fixed ids = sync-safe) ---------- */
-const SAMPLE_WORDS = [
-  {
-    id: "sample-reluctant",
-    word: "reluctant", pos: "adjective", ipa: "/rɪˈlʌktənt/",
-    definition: "Not willing to do something; hesitant.",
-    explanation: "Used when someone agrees to do something but does not really want to, often because of doubt or fear. It describes an inner resistance rather than an open refusal.",
-    exampleBook: "She was reluctant to leave the safety of the lighthouse, even as the storm calmed.",
-    exampleLearning: "He was reluctant to admit his mistake in front of the whole team.",
-    grammar: "Gradable adjective. Followed by 'to' + infinitive: reluctant to do something. Noun form takes 'reluctance to'.",
-    collocations: ["reluctant to admit", "reluctant to accept", "deeply reluctant"],
-    synonyms: ["unwilling", "hesitant", "disinclined"],
-    antonyms: ["eager", "willing", "keen"],
-    wordForms: "noun: reluctance; adverb: reluctantly",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 1",
-    note: "Often paired with 'to admit' — good for formal writing.",
-    tags: ["academic", "emotions"], difficulty: "Easy",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  },
-  {
-    id: "sample-contemplate",
-    word: "contemplate", pos: "verb", ipa: "/ˈkɒntəmpleɪt/",
-    definition: "To think about something deeply and for a long time.",
-    explanation: "Suggests slow, serious, often quiet thought about a plan, an idea, or a possibility. Stronger and more deliberate than 'consider'.",
-    exampleBook: "He stood at the window, contemplating the grey sea.",
-    exampleLearning: "Before changing careers, she spent months contemplating the risks.",
-    grammar: "Transitive verb. Patterns: contemplate + noun, contemplate + -ing form (contemplate leaving). NOT followed by 'to' + infinitive.",
-    collocations: ["contemplate the possibility", "contemplate leaving", "seriously contemplate"],
-    synonyms: ["ponder", "consider", "reflect on", "mull over"],
-    antonyms: ["ignore", "disregard"],
-    wordForms: "noun: contemplation; adjective: contemplative",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 1",
-    note: "Remember: contemplate DOING, never contemplate TO DO.",
-    tags: ["academic", "literary"], difficulty: "Medium",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  },
-  {
-    id: "sample-subtle",
-    word: "subtle", pos: "adjective", ipa: "/ˈsʌtl/",
-    definition: "Not obvious; delicate and difficult to notice.",
-    explanation: "Describes something small, gentle, or clever that is easy to miss — a change, a flavor, a hint, a difference. The 'b' is silent.",
-    exampleBook: "There was a subtle shift in his tone, so slight that only she noticed it.",
-    exampleLearning: "The new design makes subtle improvements that you only notice after a while.",
-    grammar: "Gradable adjective. Comparative: subtler (or more subtle), subtlest. Silent 'b'.",
-    collocations: ["subtle difference", "subtle change", "subtle hint"],
-    synonyms: ["faint", "understated", "delicate", "nuanced"],
-    antonyms: ["obvious", "blatant", "glaring"],
-    wordForms: "noun: subtlety; adverb: subtly",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 2",
-    note: "Silent 'b'! Pronounced 'SUH-tl'.",
-    tags: ["literary", "pronunciation"], difficulty: "Medium",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  },
-  {
-    id: "sample-carry-out",
-    word: "carry out", pos: "phrasal verb", ipa: "/ˌkæri ˈaʊt/",
-    definition: "To do or complete a task, plan, or promise.",
-    explanation: "A very common phrasal verb in academic and professional English, used for performing planned work: experiments, research, surveys, orders.",
-    exampleBook: "Researchers carried out a series of interviews across five countries.",
-    exampleLearning: "The team carried out a survey to verify the results.",
-    grammar: "Transitive and separable: carry out a plan / carry a plan out. Passive is common: 'The study was carried out in 2024.'",
-    collocations: ["carry out research", "carry out an experiment", "carry out a survey"],
-    synonyms: ["perform", "conduct", "execute", "implement"],
-    antonyms: ["abandon", "neglect"],
-    wordForms: "compare: execution, implementation",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 3",
-    note: "Preferred verb for experiments/research in academic writing.",
-    tags: ["phrasal verb", "academic"], difficulty: "Easy",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  },
-  {
-    id: "sample-notwithstanding",
-    word: "notwithstanding", pos: "preposition", ipa: "/ˌnɒtwɪθˈstændɪŋ/",
-    definition: "Despite; in spite of.",
-    explanation: "A formal word found in legal, academic, and literary writing. Unusually, it can come before or after the noun: 'notwithstanding the delay' or 'the delay notwithstanding'.",
-    exampleBook: "Notwithstanding the objections of the board, the plan proceeded.",
-    exampleLearning: "Her inexperience notwithstanding, she handled the negotiation brilliantly.",
-    grammar: "Preposition (can follow its object), also adverb. Register: formal/legal.",
-    collocations: ["notwithstanding the fact that", "objections notwithstanding"],
-    synonyms: ["despite", "in spite of", "regardless of"],
-    antonyms: ["because of", "owing to"],
-    wordForms: "functions as preposition, adverb, and (rarely) conjunction",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 4",
-    note: "Impressive in formal writing, but don't overuse it.",
-    tags: ["formal", "grammar"], difficulty: "Hard",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  }
-];
-
-const SAMPLE_GRAMMAR = [
-  {
-    id: "sample-g-inversion",
-    title: "Inversion after negative adverbials",
-    explanation: "In formal English, when a sentence starts with a negative or limiting adverbial (never, rarely, not only, under no circumstances, no sooner), the subject and auxiliary verb are inverted — like a question. It adds emphasis and a formal tone; very common in C1 writing tasks.",
-    structure: "Negative adverbial + auxiliary + subject + main verb\nNot only + aux + subject…, but (also)…\nNo sooner + had + subject + past participle… than…",
-    examples: "Never have I seen such a beautiful sunset.\nNot only did she pass the exam, but she also got the highest mark.\nNo sooner had we arrived than it started to rain.\nUnder no circumstances should you open this door.",
-    mistakes: "✗ Never I have seen…  →  ✓ Never have I seen…\n✗ No sooner we had arrived…  →  ✓ No sooner had we arrived…",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 2",
-    tags: ["C1", "formal", "inversion"],
-    note: "Great for essays — use once or twice, not in every sentence.",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  },
-  {
-    id: "sample-g-cleft",
-    title: "Cleft sentences (It was… / What I need is…)",
-    explanation: "Cleft sentences split one message into two clauses to emphasize a particular part. 'It-clefts' highlight who/what/when; 'wh-clefts' (What…) highlight the whole action or thing. They are heavily tested at C1 in key-word transformations.",
-    structure: "It + be + emphasized part + that/who…\nWhat + subject + verb + be + emphasized part",
-    examples: "It was John who broke the window, not me.\nIt was in 2019 that we first met.\nWhat I really need is a long holiday.\nWhat annoyed me most was his silence.",
-    mistakes: "✗ It was John which broke…  →  ✓ It was John who broke…\n✗ What I need it is a holiday.  →  ✓ What I need is a holiday.",
-    book: "Ready for C1 Advanced", chapterPage: "Unit 5",
-    tags: ["C1", "emphasis", "transformations"],
-    note: "",
-    updatedAt: "2026-07-08T00:00:00.000Z", dateAdded: "2026-07-08"
-  }
-];
 
 /* ==================================================================
    SPACED REPETITION (personal — never synced)
@@ -1190,7 +1095,7 @@ function renderTagChips(inputId, chipsId) {
   $(chipsId).innerHTML = all.slice(0, 24).map(t =>
     `<button type="button" class="badge tag chip-btn" data-tag="${esc(t)}">＋ ${esc(t)}</button>`).join("");
 }
-for (const [chipsId, inputId] of [["fTagChips", "fTags"], ["gTagChips", "gTags"]]) {
+for (const [chipsId, inputId] of [["fTagChips", "fTags"], ["gTagChips", "gTags"], ["bulkTagChips", "bulkTags"]]) {
   $(chipsId).addEventListener("click", e => {
     const b = e.target.closest(".chip-btn");
     if (!b) return;
@@ -1292,7 +1197,7 @@ $("wordForm").addEventListener("submit", e => {
   } else {
     data.addedBy = settings.name;
     words.unshift(normalize(data));
-    toast(`Added “${data.word}” — remember to Sync to share it`);
+    toast(`Added “${data.word}” — press ⇅ Push to share it`);
   }
   saveData();
   renderAll();
@@ -1455,6 +1360,87 @@ $("lookupBtn").addEventListener("click", async () => {
 });
 
 /* ==================================================================
+   BULK ADD — paste a whole chapter's word list, get full entries.
+   A lean lookup (2 requests per word) fills definition, IPA, POS,
+   example, synonyms and difficulty; duplicates are skipped.
+   ================================================================== */
+async function bulkLookup(word) {
+  const enc = encodeURIComponent(word);
+  const out = {};
+  const [dict, fp] = await Promise.allSettled([
+    fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + enc)
+      .then(r => { if (!r.ok) throw new Error("nf"); return r.json(); }),
+    datamuse("sp=" + enc + "&md=fp&max=1")
+  ]);
+  if (dict.status === "fulfilled") {
+    const e = dict.value[0], meanings = e.meanings || [];
+    out.ipa = e.phonetic || (e.phonetics || []).find(p => p.text)?.text || "";
+    const m = meanings[0];
+    if (m) {
+      out.pos = POS_MAP[m.partOfSpeech] || "";
+      out.definition = m.definitions?.[0]?.definition || "";
+      out.exampleLearning = m.definitions?.find(d => d.example)?.example || "";
+      out.synonyms = [...new Set(meanings.flatMap(x =>
+        [...(x.synonyms || []), ...(x.definitions || []).flatMap(d => d.synonyms || [])]))].slice(0, 6);
+    }
+  }
+  if (fp.status === "fulfilled" && fp.value[0]?.word?.toLowerCase() === word.toLowerCase()) {
+    const tags = fp.value[0].tags || [];
+    if (!out.pos) {
+      const DM_POS = { n: "noun", v: /\s/.test(word) ? "phrasal verb" : "verb",
+        adj: "adjective", adv: "adverb" };
+      const t = tags.find(t => DM_POS[t]);
+      if (t) out.pos = DM_POS[t];
+    }
+    const f = parseFloat(tags.find(t => t.startsWith("f:"))?.slice(2) || "0");
+    if (f > 0) out.difficulty = f >= 25 ? "Easy" : f >= 3 ? "Medium" : "Hard";
+  }
+  return out;
+}
+
+$("bulkBtn").addEventListener("click", () => {
+  $("bulkWords").value = "";
+  $("bulkBook").value = localStorage.getItem(LS_LASTBOOK) ?? DEFAULT_BOOK;
+  $("bulkTags").value = "";
+  $("bulkStatus").textContent = "";
+  renderTagChips("bulkTags", "bulkTagChips");
+  $("bulkModal").showModal();
+});
+
+$("bulkStartBtn").addEventListener("click", async () => {
+  const items = [...new Set($("bulkWords").value.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean))];
+  if (!items.length) { toast("Paste some words first"); return; }
+  const book = $("bulkBook").value.trim();
+  const tags = splitList($("bulkTags").value);
+  const auto = $("bulkAuto").checked;
+  const btn = $("bulkStartBtn");
+  btn.disabled = true;
+  if (book) localStorage.setItem(LS_LASTBOOK, book);
+  let added = 0;
+  const dupes = [], needWork = [];
+  for (let i = 0; i < items.length; i++) {
+    const text = items[i];
+    $("bulkStatus").textContent = `Looking up ${i + 1} / ${items.length}: ${text}…`;
+    if (words.some(w => w.word.toLowerCase() === text.toLowerCase())) { dupes.push(text); continue; }
+    let info = {};
+    if (auto) { try { info = await bulkLookup(text); } catch {} }
+    const wordTags = [...tags];
+    if (info.pos === "phrasal verb" && !wordTags.includes("phrasal verb")) wordTags.push("phrasal verb");
+    if (isAcademic(text) && !wordTags.includes("academic")) wordTags.push("academic");
+    words.unshift(normalize({ word: text, book, tags: wordTags, addedBy: settings.name, ...info }));
+    if (!info.definition) needWork.push(text);
+    added++;
+  }
+  saveData();
+  renderAll();
+  btn.disabled = false;
+  $("bulkStatus").textContent = `Done — ${added} added.` +
+    (dupes.length ? ` Skipped (already saved): ${dupes.join(", ")}.` : "") +
+    (needWork.length ? ` No definition found for: ${needWork.join(", ")} — open and fill them.` : "");
+  toast(`Bulk add: ${added} word${added !== 1 ? "s" : ""} added — press ⇅ Push to share`, 5000);
+});
+
+/* ==================================================================
    GRAMMAR FORM
    ================================================================== */
 let editingGrammarId = null;
@@ -1501,7 +1487,7 @@ $("grammarForm").addEventListener("submit", e => {
   } else {
     data.addedBy = settings.name;
     grammarNotes.unshift(normalizeGrammar(data));
-    toast(`Added grammar note — remember to Sync`);
+    toast(`Added grammar note — press ⇅ Push to share`);
   }
   saveData();
   renderAll();
@@ -1569,11 +1555,14 @@ for (const gridId of ["wordGrid", "grammarGrid"]) {
 let reviewQueue = [];
 let reviewRevealed = false;
 let reviewDone = 0;
+// Session scoring: each word counts once (its FIRST grade); Good/Easy = correct
+let reviewSession = null;
 
 function startReview(all = false) {
   const pool = all ? [...words] : words.filter(isDue);
   reviewQueue = pool.sort((a, b) => a.srs.due.localeCompare(b.srs.due)).map(w => w.id);
   reviewDone = 0;
+  reviewSession = { graded: new Set(), total: 0, correct: 0, saved: false };
   renderReview();
 }
 
@@ -1586,8 +1575,11 @@ function renderReview() {
   }
   if (!reviewQueue.length) {
     const dueCount = words.filter(isDue).length;
+    const score = reviewSession?.total
+      ? Math.round(100 * reviewSession.correct / reviewSession.total) : null;
     area.innerHTML = `<div class="empty"><div class="big">${reviewDone ? "🎉" : "☕"}</div>
-      <p><strong>${reviewDone ? `Session complete — ${reviewDone} word${reviewDone !== 1 ? "s" : ""} reviewed!` : "Nothing due right now."}</strong></p>
+      <p><strong>${reviewDone ? `Session complete — ${reviewDone} word${reviewDone !== 1 ? "s" : ""} reviewed · score ${score}%` : "Nothing due right now."}</strong></p>
+      ${reviewDone ? `<p class="hint">Your score joins the Group tab after your next ⇅ Push</p>` : ""}
       <p style="margin:12px 0">${dueCount ? `${dueCount} word(s) are due.` : "All caught up. 🎓"}</p>
       <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
         ${dueCount ? `<button class="btn btn-primary" id="startDueBtn">Start review (${dueCount} due)</button>` : ""}
@@ -1651,8 +1643,22 @@ function applyGrade(grade) {
   const id = reviewQueue.shift();
   const w = words.find(x => x.id === id);
   gradeWord(w, grade);
+  if (reviewSession && !reviewSession.graded.has(id)) {
+    reviewSession.graded.add(id);
+    reviewSession.total++;
+    if (grade === "good" || grade === "easy") reviewSession.correct++;
+  }
   if (grade === "again") reviewQueue.push(id);
   else reviewDone++;
+  // Session finished → record the score (shared with the group on next Push)
+  if (!reviewQueue.length && reviewSession?.total && !reviewSession.saved) {
+    reviewSession.saved = true;
+    sessions.push({ date: todayStr(),
+      words: reviewSession.total,
+      score: Math.round(100 * reviewSession.correct / reviewSession.total) });
+    if (sessions.length > 100) sessions = sessions.slice(-100);
+    localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+  }
   saveData();
   renderStats();
   renderReview();
@@ -1711,6 +1717,7 @@ function renderGroup() {
     wAdded: words.filter(w => w.addedBy === name).length,
     gAdded: grammarNotes.filter(g => g.addedBy === name).length,
     st: members[name]?.statuses || null,
+    quiz: members[name]?.quiz || null,
     lastSync: members[name]?.lastSync || null
   })).sort((a, b) => (b.wAdded + b.gAdded) - (a.wAdded + a.gAdded));
   area.innerHTML = rows.map(r => {
@@ -1731,6 +1738,8 @@ function renderGroup() {
         ${badge(r.wAdded + " word" + (r.wAdded !== 1 ? "s" : "") + " added", "tag")}
         ${badge(r.gAdded + " grammar", "tag")}
         ${r.st ? badge((r.st.Mastered || 0) + " mastered", "b-mastered") : ""}
+        ${r.quiz ? badge(`${r.quiz.sessions} review${r.quiz.sessions !== 1 ? "s" : ""} · avg ${r.quiz.avgScore}%`, "b-familiar") : ""}
+        ${r.quiz ? badge(`last: ${r.quiz.lastScore}%`, "b-new") : ""}
       </div>
       ${bar || `<p class="hint">study progress appears after they sync</p>`}
     </article>`;
@@ -1830,7 +1839,9 @@ function mergeRemote(localList, remote, normalizer, isWordList) {
   return added;
 }
 
-async function syncNow() {
+/* push=true → full sync (pull, merge, then share my changes)
+   push=false → "Update": pull & merge only, nothing of mine leaves the browser */
+async function syncNow(push = true) {
   if (!settings.token) {
     toast("Add your GitHub token first (⚙ Settings)");
     openSettings();
@@ -1838,7 +1849,7 @@ async function syncNow() {
   }
   const icon = $("syncIcon");
   icon.classList.add("spin"); icon.textContent = "⟳";
-  $("syncBtn").disabled = true;
+  $("pushBtn").disabled = $("updateBtn").disabled = true;
   try {
     let totalNew = 0, pushed = 0;
     // Two datasets, same procedure; retry once on a sha race with a friend
@@ -1854,7 +1865,7 @@ async function syncNow() {
         // Safety net: my local deletions will remove entries for the WHOLE group.
         // List them and ask once; "Cancel" un-deletes them (they come back from
         // the group copy during the merge below).
-        if (attempt === 0 && remote) {
+        if (push && attempt === 0 && remote) {
           const remoteDeletedIds = new Set((remote.json?.deleted || []).map(t => t.id));
           const pending = deleted.filter(t => (t.kind === "word") === f.word &&
             !remoteDeletedIds.has(t.id) && (remote.json?.entries || []).some(e => e.id === t.id));
@@ -1870,6 +1881,7 @@ async function syncNow() {
           }
         }
         totalNew += mergeRemote(f.list(), remote?.json, f.norm, f.word);
+        if (!push) break;   // Update mode: merge in, write nothing
         const kindDeleted = deleted.filter(t => (t.kind === "word") === f.word);
         const payload = { entries: f.shared(), deleted: kindDeleted };
         // Push only if the merged result differs from what's on GitHub
@@ -1881,7 +1893,7 @@ async function syncNow() {
     }
     // Publish my totals to the shared member log (best effort — a conflict
     // with a friend syncing at the same moment is silently skipped)
-    try {
+    if (push) try {
       const remoteMeta = await ghGetFile("data/meta.json");
       const meta = remoteMeta?.json && typeof remoteMeta.json === "object" ? remoteMeta.json : {};
       meta.members = meta.members || {};
@@ -1892,7 +1904,14 @@ async function syncNow() {
           lastSync: nowIso(),
           wordsAdded: words.filter(w => w.addedBy === settings.name).length,
           grammarAdded: grammarNotes.filter(g => g.addedBy === settings.name).length,
-          statuses: counts
+          statuses: counts,
+          // Review-exam results: totals only, never the schedule
+          quiz: sessions.length ? {
+            sessions: sessions.length,
+            avgScore: Math.round(sessions.reduce((s, x) => s + x.score, 0) / sessions.length),
+            lastScore: sessions[sessions.length - 1].score,
+            lastDate: sessions[sessions.length - 1].date
+          } : null
         };
         await ghPutFile("data/meta.json", meta, remoteMeta?.sha);
       }
@@ -1904,16 +1923,19 @@ async function syncNow() {
     renderAll();
     updateSyncAgo();
     if (!$("view-group").hidden) renderGroup();
-    toast(`Synced ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`, 6000);
+    toast(push
+      ? `Pushed ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`
+      : `Updated ✓ ${totalNew ? `${totalNew} new from the group` : "you already have everything"}`, 6000);
   } catch (err) {
     console.error(err);
     toast(navigator.onLine === false ? "You're offline — sync needs internet." : "Sync failed: " + err.message);
   } finally {
     icon.classList.remove("spin"); icon.textContent = "⇅";
-    $("syncBtn").disabled = false;
+    $("pushBtn").disabled = $("updateBtn").disabled = false;
   }
 }
-$("syncBtn").addEventListener("click", syncNow);
+$("pushBtn").addEventListener("click", () => syncNow(true));
+$("updateBtn").addEventListener("click", () => syncNow(false));
 
 /* ==================================================================
    SETTINGS MODAL
@@ -1921,10 +1943,14 @@ $("syncBtn").addEventListener("click", syncNow);
 function openSettings() {
   $("sName").value = settings.name;
   $("sRepo").value = settings.repo;
-  $("sToken").value = settings.token;
-  $("lastSyncInfo").textContent = settings.lastSync
-    ? "Last successful sync: " + new Date(settings.lastSync).toLocaleString()
-    : "Never synced yet.";
+  // The saved token is never shown and can't be deleted from here —
+  // it can only be REPLACED by pasting a new one
+  $("sToken").value = "";
+  $("sToken").placeholder = settings.token
+    ? "Connected ✓ — paste a new token only if you want to replace it"
+    : "github_pat_…";
+  $("lastSyncInfo").textContent = (settings.token ? "Connected to " + settings.repo + " ✓ · " : "Not connected yet · ") +
+    (settings.lastSync ? "last sync: " + new Date(settings.lastSync).toLocaleString() : "never synced");
   $("settingsModal").showModal();
 }
 $("settingsBtn").addEventListener("click", openSettings);
@@ -1932,7 +1958,8 @@ $("settingsForm").addEventListener("submit", e => {
   e.preventDefault();
   settings.name = $("sName").value.trim();
   settings.repo = $("sRepo").value.trim() || DEFAULT_REPO;
-  settings.token = $("sToken").value.trim();
+  const newToken = $("sToken").value.trim();
+  if (newToken) settings.token = newToken;   // empty field = keep the existing token
   saveSettings();
   $("settingsModal").close();
   toast("Settings saved");
@@ -2093,7 +2120,7 @@ renderAll();
 updateSyncAgo();
 // Friendly nudge: first-time users see where Sync lives
 if (!settings.lastSync && !settings.token)
-  setTimeout(() => toast("Tip: press ⚙ to set your name & GitHub token, then Sync to join the group"), 1200);
+  setTimeout(() => toast("Tip: press ⚙ to set your name & GitHub token, then Push to join the group"), 1200);
 </script>
 </body>
 </html>
