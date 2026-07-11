@@ -2256,8 +2256,9 @@ $("menuBtn").addEventListener("click", () => $("backupModal").showModal());
 /* Reset THIS browser only: local words/grammar/tombstones/progress go,
    settings (name, token) stay, samples reseed, GitHub data untouched. */
 $("resetLocalBtn").addEventListener("click", () => {
-  if (!confirm("Reset this device? Local words, grammar notes, pending deletions and review progress will be wiped. The group's data on GitHub is NOT touched.")) return;
-  [LS_WORDS, LS_GRAMMAR, LS_DELETED, LS_INIT, LS_LASTBOOK].forEach(k => localStorage.removeItem(k));
+  if (!confirm("Reset this device? Local words, grammar notes, pending deletions, review progress and quiz scores will be wiped. The group's data on GitHub is NOT touched.")) return;
+  // Everything local goes, including review/quiz scores; settings & theme stay
+  [LS_WORDS, LS_GRAMMAR, LS_DELETED, LS_INIT, LS_LASTBOOK, LS_SESSIONS, LS_QUIZZES, LS_META].forEach(k => localStorage.removeItem(k));
   location.reload();
 });
 
