@@ -895,7 +895,10 @@ function getFiltered() {
     if (fBook && w.book !== fBook) return false;
     if (fTag && !w.tags.includes(fTag)) return false;
     if (q) {
-      const hay = [w.word, w.definition, w.explanation, w.book,
+      // Search covers word, definition, synonyms, tags, book, examples —
+      // NOT the long explanation, so searching a tag like "academic"
+      // doesn't match words whose explanation merely mentions the term
+      const hay = [w.word, w.definition, w.book,
         w.exampleBook, w.exampleLearning,
         w.synonyms.join(" "), w.tags.join(" ")].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
@@ -931,8 +934,20 @@ const diffBadge = d => badge(d, "b-" + d.toLowerCase());
 const statusBadge = s => badge(s, "b-" + s.toLowerCase());
 
 function renderLibrary() {
-  const list = getFiltered();
   const grid = $("wordGrid");
+  // Brand-new device (e.g. after Reset): show how to get started
+  if (!words.length) {
+    grid.innerHTML = `<div class="empty"><div class="big">\u{1F44B}</div>
+      <p><strong>Welcome to the Reading Vocabulary Notebook!</strong></p>
+      <div style="text-align:left;max-width:480px;margin:14px auto 0;display:flex;flex-direction:column;gap:8px">
+        <p>1\uFE0F\u20E3 Press <strong>\u2699</strong> and enter your name + GitHub token (one-time — full guide on the repo page).</p>
+        <p>2\uFE0F\u20E3 Press <strong>\u2B07 Update</strong> to download the group's words and grammar.</p>
+        <p>3\uFE0F\u20E3 Add words with <strong>\uFF0B Word</strong> (\u{1F50E} Auto-fill does the boring part) or paste a whole list with <strong>\u2E3D Bulk</strong>.</p>
+        <p>4\uFE0F\u20E3 Press <strong>\u21C5 Push</strong> to share. Study in <strong>Review</strong>, compete in <strong>Quiz</strong>, follow ranks in <strong>Group</strong>.</p>
+      </div></div>`;
+    return;
+  }
+  const list = getFiltered();
   if (!list.length) {
     grid.innerHTML = `<div class="empty"><div class="big">📖</div>
       <p><strong>No words found.</strong></p>
@@ -1711,63 +1726,102 @@ document.addEventListener("keydown", e => {
 
 /* ==================================================================
    QUIZ — auto-generated, objectively scored (the competition numbers).
-   Three question types built from the group's own words:
-   - gap-fill: type the missing word in a saved example sentence
+   All questions are multiple choice:
+   - gap-fill: pick the missing word for a saved example sentence
    - "Which word means…": definition shown, 4 word options
-   - "What does X mean": word shown, 4 definition options
-   Distractors prefer the same part of speech. Wrong answers become
-   due in Review today.
+   - "What does it mean": word shown, 4 definition options
+   - grammar: "Which sentence is correct?" — built from the ✗/✓ pairs
+     in grammar notes' Common Mistakes field (up to 3 per quiz)
+   Distractors prefer the same part of speech. 2 minutes per question;
+   time out = wrong. Wrong words become due in Review today.
    ================================================================== */
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) {
   const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const escReg = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-let quizState = null;   // { questions, index, correct, wrong[], tag, answered }
+let quizState = null;   // { questions, index, correct, wrong[], tag, answered, timerId }
 
-function buildQuiz(tag, n = 10) {
-  const pool = words.filter(w => w.definition && (!tag || w.tags.includes(tag)));
-  if (pool.length < 4) return null;
-  return shuffle([...pool]).slice(0, n).map(w => {
-    const example = [w.exampleLearning, w.exampleBook]
-      .find(ex => ex && new RegExp(escReg(w.word), "i").test(ex));
-    const types = ["mcWord", "mcDef"];
-    if (example) types.push("gap", "gap");            // prefer gap-fill when possible
-    const type = types[Math.floor(Math.random() * types.length)];
-    if (type === "gap")
-      return { type, w, prompt: example.replace(new RegExp(escReg(w.word), "ig"), "______") };
-    // Distractors: same part of speech first, then anything
-    const others = pool.filter(x => x.id !== w.id);
-    let picks = shuffle(others.filter(x => w.pos && x.pos === w.pos)).slice(0, 3);
-    if (picks.length < 3)
-      picks = picks.concat(shuffle(others.filter(x => !picks.includes(x))).slice(0, 3 - picks.length));
-    return { type, w, options: shuffle([w, ...picks]) };
-  });
+function stopQuizTimer() {
+  if (quizState?.timerId) { clearInterval(quizState.timerId); quizState.timerId = null; }
+}
+function startQuizTimer(onExpire) {
+  let remaining = 120;                       // 2 minutes per question
+  quizState.timerId = setInterval(() => {
+    remaining--;
+    const el = $("quizTimer");
+    if (el) el.textContent = `⏱ ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+    if (remaining <= 0) { stopQuizTimer(); onExpire(); }
+  }, 1000);
 }
 
-function startQuiz(tag) {
-  const questions = buildQuiz(tag);
-  if (!questions) { toast("Need at least 4 words with definitions" + (tag ? " in that tag" : "")); return; }
-  quizState = { questions, index: 0, correct: 0, wrong: [], tag, answered: false };
+/* Turn "✗ wrong → ✓ right" lines from grammar notes into questions */
+function grammarQuestions(tag) {
+  const out = [];
+  for (const g of grammarNotes) {
+    if (tag && !g.tags.includes(tag)) continue;
+    const re = /✗\s*([^\n✓✗]+?)\s*(?:→|-+>)\s*✓\s*([^\n✗✓]+)/g;
+    let m;
+    while ((m = re.exec(g.mistakes || "")) !== null) {
+      const wrong = m[1].trim(), right = m[2].trim();
+      if (wrong && right && wrong !== right) out.push({ type: "grammar", g, wrong, right });
+    }
+  }
+  return out;
+}
+
+function buildQuiz(tag, diff, n = 10) {
+  const pool = words.filter(w => w.definition &&
+    (!tag || w.tags.includes(tag)) && (!diff || w.difficulty === diff));
+  const gq = shuffle(grammarQuestions(diff ? "" : tag)).slice(0, 3);
+  if (pool.length < 4 && !gq.length) return null;
+  let qs = [];
+  if (pool.length >= 4) {
+    qs = shuffle([...pool]).slice(0, Math.max(1, n - gq.length)).map(w => {
+      const example = [w.exampleLearning, w.exampleBook]
+        .find(ex => ex && new RegExp(escReg(w.word), "i").test(ex));
+      const others = pool.filter(x => x.id !== w.id);
+      let picks = shuffle(others.filter(x => w.pos && x.pos === w.pos)).slice(0, 3);
+      if (picks.length < 3)
+        picks = picks.concat(shuffle(others.filter(x => !picks.includes(x))).slice(0, 3 - picks.length));
+      const types = ["mcWord", "mcDef"];
+      if (example) types.push("gap", "gap");           // prefer gap-fill when possible
+      const type = types[Math.floor(Math.random() * types.length)];
+      return { type, w, options: shuffle([w, ...picks]),
+        prompt: type === "gap" ? example.replace(new RegExp(escReg(w.word), "ig"), "______") : null };
+    });
+  }
+  return shuffle([...qs, ...gq]);
+}
+
+function startQuiz(tag, diff) {
+  const questions = buildQuiz(tag, diff);
+  if (!questions || !questions.length) { toast("Not enough words for that selection — need at least 4 with definitions"); return; }
+  quizState = { questions, index: 0, correct: 0, wrong: [], tag, answered: false, timerId: null };
   renderQuiz();
 }
 
 function renderQuiz() {
   const area = $("quizArea");
+  stopQuizTimer();
   // ---- setup screen ----
   if (!quizState) {
-    const tags = [...new Set(words.flatMap(w => w.tags))].sort();
+    const tags = [...new Set([...words.flatMap(w => w.tags), ...grammarNotes.flatMap(g => g.tags)])].sort();
     area.innerHTML = `<div class="empty"><div class="big">🎯</div>
       <p><strong>Quiz time!</strong></p>
-      <p style="margin:8px 0 16px">10 auto-generated questions from the group's words.<br>
-        Pick a unit tag to test just one chapter, or quiz everything.</p>
-      <div style="max-width:320px;margin:0 auto;text-align:left">
-        <label for="quizTag">Quiz on</label>
+      <p style="margin:8px 0 16px">10 multiple-choice questions from the group's words —
+        plus grammar questions when your grammar notes have ✗/✓ mistake pairs.<br>
+        2 minutes per question. Wrong answers go to Review.</p>
+      <div style="max-width:320px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:10px">
+        <div><label for="quizTag">Quiz on</label>
         <select id="quizTag"><option value="">All words (${words.length})</option>
           ${tags.map(t => `<option value="${esc(t)}">${esc(t)} (${words.filter(w => w.tags.includes(t)).length})</option>`).join("")}
-        </select>
+        </select></div>
+        <div><label for="quizDiff">Level</label>
+        <select id="quizDiff"><option value="">All levels</option>
+          <option>Easy</option><option>Medium</option><option>Hard</option></select></div>
       </div>
       <div style="margin-top:16px"><button class="btn btn-primary" id="quizStartBtn">Start quiz</button></div></div>`;
-    $("quizStartBtn").onclick = () => startQuiz($("quizTag").value);
+    $("quizStartBtn").onclick = () => startQuiz($("quizTag").value, $("quizDiff").value);
     return;
   }
   // ---- results screen ----
@@ -1779,86 +1833,97 @@ function renderQuiz() {
       quizzes.push({ date: todayStr(), words: qs.questions.length, score, tag: qs.tag || "" });
       if (quizzes.length > 100) quizzes = quizzes.slice(-100);
       localStorage.setItem(LS_QUIZZES, JSON.stringify(quizzes));
-      // Missed words become due today so Review picks them up
-      qs.wrong.forEach(w => { w.srs.due = todayStr(); });
+      // Missed WORDS become due today so Review picks them up
+      qs.wrong.forEach(x => { if (x.srs) x.srs.due = todayStr(); });
       saveData(); renderStats();
     }
     area.innerHTML = `<div class="empty"><div class="big">${score >= 80 ? "🏆" : score >= 50 ? "💪" : "📖"}</div>
       <p><strong>Quiz finished — ${qs.correct}/${qs.questions.length} correct · score ${score}%</strong></p>
-      ${qs.wrong.length ? `<div style="text-align:left;max-width:420px;margin:14px auto">
-        <p class="hint" style="margin-bottom:6px">To work on (now due in Review):</p>
-        ${qs.wrong.map(w => `<p>• <strong>${esc(w.word)}</strong> — ${esc(w.definition)}</p>`).join("")}</div>` : `<p style="margin-top:10px">Perfect — nothing to fix! 🎓</p>`}
+      ${qs.wrong.length ? `<div style="text-align:left;max-width:440px;margin:14px auto">
+        <p class="hint" style="margin-bottom:6px">To work on:</p>
+        ${qs.wrong.map(x => `<p>• <strong>${esc(x.word || x.title)}</strong> — ${esc((x.definition || x.explanation || "").slice(0, 100))}</p>`).join("")}</div>` : `<p style="margin-top:10px">Perfect — nothing to fix! 🎓</p>`}
       <p class="hint" style="margin-top:10px">Your quiz score joins the Group leaderboard after your next ⇅ Push</p>
-      <div style="margin-top:14px;display:flex;gap:10px;justify-content:center">
-        <button class="btn btn-primary" id="quizAgainBtn">New quiz</button>
-      </div></div>`;
+      <div style="margin-top:14px"><button class="btn btn-primary" id="quizAgainBtn">New quiz</button></div></div>`;
     $("quizAgainBtn").onclick = () => { quizState = null; renderQuiz(); };
     return;
   }
-  // ---- one question ----
+  // ---- one question (always multiple choice) ----
   const q = qs.questions[qs.index];
   qs.answered = false;
-  const head = `<p class="review-progress">Question ${qs.index + 1} of ${qs.questions.length}${qs.tag ? " · " + esc(qs.tag) : ""}</p>`;
-  if (q.type === "gap") {
-    area.innerHTML = `${head}<div class="flashcard" style="text-align:left">
-      <h4 style="font-size:.75rem;text-transform:uppercase;color:var(--muted)">Type the missing word</h4>
-      <blockquote style="margin:12px 0">${esc(q.prompt)}</blockquote>
-      ${q.w.pos ? `<p class="hint">(${esc(q.w.pos)})</p>` : ""}
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <input id="gapInput" autocomplete="off" placeholder="Your answer…">
-        <button class="btn btn-primary" id="gapCheckBtn">Check</button>
+  let title, prompt, options;
+  if (q.type === "grammar") {
+    title = "Which sentence is correct?";
+    prompt = `<p class="hint" style="margin:8px 0">${esc(q.g.title)}</p>`;
+    options = shuffle([{ text: q.right, ok: true }, { text: q.wrong, ok: false }]);
+  } else if (q.type === "gap") {
+    title = "Choose the missing word";
+    prompt = `<blockquote style="margin:12px 0">${esc(q.prompt)}</blockquote>${q.w.pos ? `<p class="hint">(${esc(q.w.pos)})</p>` : ""}`;
+    options = q.options.map(o => ({ text: o.word, ok: o.id === q.w.id }));
+  } else if (q.type === "mcWord") {
+    title = "Which word means…";
+    prompt = `<p style="font-size:1.1rem;margin:12px 0">${esc(q.w.definition)}</p>`;
+    options = q.options.map(o => ({ text: o.word, ok: o.id === q.w.id }));
+  } else {
+    title = "What does it mean?";
+    prompt = `<p style="font-size:1.15rem;margin:12px 0"><strong class="serif">${esc(q.w.word)}</strong>${q.w.pos ? ` <em style="color:var(--muted);font-size:.9rem">(${esc(q.w.pos)})</em>` : ""}</p>`;
+    options = q.options.map(o => ({ text: o.definition, ok: o.id === q.w.id }));
+  }
+  area.innerHTML = `
+    <p class="review-progress">Question ${qs.index + 1} of ${qs.questions.length}${qs.tag ? " · " + esc(qs.tag) : ""} · <span id="quizTimer">⏱ 2:00</span></p>
+    <div class="flashcard" style="text-align:left">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h4 style="font-size:.75rem;text-transform:uppercase;color:var(--muted)">${title}</h4>
+        <button class="btn btn-sm" id="quizQuitBtn" title="Leave the quiz — this round won't be saved">✕ Quit</button>
       </div>
-      <div id="quizFeedback" style="margin-top:12px"></div></div>`;
-    const check = () => {
+      ${prompt}
+      ${options.map((o, i) => `<button class="btn quiz-option" data-i="${i}">
+        <span style="color:var(--muted);margin-right:8px">${i + 1}</span> ${esc(o.text)}</button>`).join("")}
+      <div id="quizFeedback" style="margin-top:12px"></div>
+    </div>`;
+  $("quizQuitBtn").onclick = () => {
+    if (confirm("Quit the quiz? This round won't be saved.")) { stopQuizTimer(); quizState = null; renderQuiz(); }
+  };
+  const paint = chosenBtn => {
+    area.querySelectorAll(".quiz-option").forEach((b, j) => {
+      b.disabled = true;
+      if (options[j].ok) b.classList.add("btn-done");
+      else if (b === chosenBtn) b.classList.add("btn-wrong");
+    });
+  };
+  area.querySelectorAll(".quiz-option").forEach(btn => {
+    btn.onclick = () => {
       if (qs.answered) return;
       qs.answered = true;
-      const ok = $("gapInput").value.trim().toLowerCase() === q.w.word.toLowerCase();
-      answerQuestion(ok, q);
+      stopQuizTimer();
+      paint(btn);
+      answerQuestion(options[+btn.dataset.i].ok, q, false);
     };
-    $("gapCheckBtn").onclick = check;
-    $("gapInput").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); check(); } });
-    $("gapInput").focus();
-  } else {
-    const askDef = q.type === "mcWord";  // definition shown → choose the word
-    area.innerHTML = `${head}<div class="flashcard" style="text-align:left">
-      <h4 style="font-size:.75rem;text-transform:uppercase;color:var(--muted)">${askDef ? "Which word means…" : "What does it mean?"}</h4>
-      <p style="font-size:1.15rem;margin:12px 0" class="${askDef ? "" : "serif"}">
-        ${askDef ? esc(q.w.definition) : `<strong>${esc(q.w.word)}</strong>${q.w.pos ? ` <em style="color:var(--muted);font-size:.9rem">(${esc(q.w.pos)})</em>` : ""}`}</p>
-      ${q.options.map((o, i) => `<button class="btn quiz-option" data-i="${i}">
-        <span style="color:var(--muted);margin-right:8px">${i + 1}</span> ${esc(askDef ? o.word : o.definition)}</button>`).join("")}
-      <div id="quizFeedback" style="margin-top:12px"></div></div>`;
-    area.querySelectorAll(".quiz-option").forEach(btn => {
-      btn.onclick = () => {
-        if (qs.answered) return;
-        qs.answered = true;
-        const chosen = q.options[+btn.dataset.i];
-        const ok = chosen.id === q.w.id;
-        // paint the buttons: right one green, wrong pick red
-        area.querySelectorAll(".quiz-option").forEach((b, i) => {
-          b.disabled = true;
-          if (q.options[i].id === q.w.id) b.classList.add("btn-done");
-          else if (b === btn) b.classList.add("btn-wrong");
-        });
-        answerQuestion(ok, q, true);
-      };
-    });
-  }
+  });
+  startQuizTimer(() => {          // 2 minutes passed → counts as wrong
+    if (qs.answered) return;
+    qs.answered = true;
+    paint(null);
+    answerQuestion(false, q, true);
+  });
 }
 
-function answerQuestion(ok, q, painted = false) {
+function answerQuestion(ok, q, timedOut) {
   const qs = quizState;
   if (ok) qs.correct++;
-  else if (!qs.wrong.includes(q.w)) qs.wrong.push(q.w);
+  else {
+    const item = q.type === "grammar" ? q.g : q.w;
+    if (!qs.wrong.includes(item)) qs.wrong.push(item);
+  }
+  const detail = q.type === "grammar" ? (q.g.explanation || "") : q.w.definition;
   $("quizFeedback").innerHTML = `
-    <p style="font-weight:700;color:${ok ? "var(--easy)" : "var(--hard)"}">${ok ? "✓ Correct!" : "✗ Not quite."}</p>
-    ${!ok && !painted ? `<p>The answer: <strong>${esc(q.w.word)}</strong></p>` : ""}
-    ${!ok ? `<p class="hint">${esc(q.w.definition)}</p>` : ""}
+    <p style="font-weight:700;color:${ok ? "var(--easy)" : "var(--hard)"}">${ok ? "✓ Correct!" : timedOut ? "⏱ Time's up!" : "✗ Not quite."}</p>
+    ${!ok ? `<p class="hint">${esc(detail.slice(0, 160))}</p>` : ""}
     <button class="btn btn-primary" id="quizNextBtn" style="margin-top:10px">${qs.index + 1 >= qs.questions.length ? "See results" : "Next →"}</button>`;
   $("quizNextBtn").onclick = () => { qs.index++; renderQuiz(); };
   $("quizNextBtn").focus();
 }
 
-// Number keys pick an option; Enter advances after answering
+// Number keys pick an option
 document.addEventListener("keydown", e => {
   if ($("view-quiz").hidden || !quizState) return;
   if (e.target.matches("input, textarea, select")) return;
@@ -1875,6 +1940,7 @@ const views = { "tab-library": "view-library", "tab-grammar": "view-grammar",
   "tab-review": "view-review", "tab-quiz": "view-quiz",
   "tab-books": "view-books", "tab-group": "view-group" };
 function switchTab(tabId) {
+  stopQuizTimer();   // leaving a running quiz must not leave its clock ticking
   for (const [tid, vid] of Object.entries(views)) {
     $(tid).setAttribute("aria-selected", String(tid === tabId));
     $(vid).hidden = tid !== tabId;
@@ -2006,6 +2072,9 @@ async function ghPutFile(path, obj, sha) {
   return true;
 }
 
+/* Notes collected during a sync (e.g. duplicate words) — shown after it */
+let syncNotes = [];
+
 /* Merge one dataset (words or grammar). Returns how many new entries arrived. */
 function mergeRemote(localList, remote, normalizer, isWordList) {
   let added = 0;
@@ -2026,6 +2095,18 @@ function mergeRemote(localList, remote, normalizer, isWordList) {
     if (allDeletedIds.has(r.id)) continue;
     const local = localList.find(x => x.id === r.id);
     if (!local) {
+      // Same word saved by two people independently? The group copy
+      // (whoever pushed first) wins; my personal progress carries over.
+      const twin = isWordList
+        ? localList.find(x => x.word.toLowerCase() === r.word.toLowerCase() && !allDeletedIds.has(x.id))
+        : null;
+      if (twin) {
+        const { status, srs } = twin;
+        Object.assign(twin, r, { status, srs });
+        if (twin !== r && r.addedBy !== settings.name)
+          syncNotes.push(`\u26A0 \u201C${r.word}\u201D was already added by ${r.addedBy || "another member"} \u2014 kept the group copy`);
+        continue;
+      }
       // Friend's new entry — starts with fresh personal progress for me
       localList.push(r);
       added++;
@@ -2056,6 +2137,7 @@ async function syncNow(push = true) {
   $("pushBtn").disabled = $("updateBtn").disabled = true;
   try {
     let totalNew = 0, pushed = 0;
+    syncNotes = [];
     // Two datasets, same procedure; retry once on a sha race with a friend
     const files = [
       { path: "data/words.json", list: () => words, norm: normalize, word: true,
@@ -2126,6 +2208,7 @@ async function syncNow(push = true) {
     toast(push
       ? `Pushed ✓ ${totalNew ? `${totalNew} new from the group · ` : ""}${pushed ? "your changes are shared" : "everything already up to date"}`
       : `Updated ✓ ${totalNew ? `${totalNew} new from the group` : "you already have everything"}`, 6000);
+    if (syncNotes.length) setTimeout(() => toast(syncNotes.join("  ·  "), 8000), 600);
   } catch (err) {
     console.error(err);
     toast(navigator.onLine === false ? "You're offline — sync needs internet." : "Sync failed: " + err.message);
